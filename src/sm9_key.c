@@ -254,8 +254,17 @@ int sm9_enc_master_public_key_to_der(const SM9_ENC_MASTER_KEY *mpk, uint8_t **ou
 {
 	uint8_t Ppube[1 + 32 * 2];
 	size_t len = 0;
+	int ret = 0;// test only
 
 	sm9_point_to_uncompressed_octets(&mpk->Ppube, Ppube);
+
+	// test only
+	// printf("YYYYYYYYYYYYYYYYYYYYYYY>\n");
+	// for(int a=0;a<65;a++){
+	// 	printf("%02X",Ppube[a]);
+	// }
+	// printf("\n");
+	// test only
 
 	if (asn1_bit_octets_to_der(Ppube, sizeof(Ppube), NULL, &len) != 1
 		|| asn1_sequence_header_to_der(len, out, outlen) != 1
@@ -263,6 +272,7 @@ int sm9_enc_master_public_key_to_der(const SM9_ENC_MASTER_KEY *mpk, uint8_t **ou
 		error_print();
 		return -1;
 	}
+
 	return 1;
 }
 
@@ -379,19 +389,27 @@ int sm9_sign_master_key_extract_key(SM9_SIGN_MASTER_KEY *msk, const char *id, si
 
 	// t1 = H1(ID || hid, N) + ks
 	sm9_hash1(t, id, idlen, SM9_HID_SIGN);
+	/* sm9_print_bn("H1:",t);
+	for(int a=0;a<idlen;a++){
+		printf("%02X",id[a]);
+	} 
+	printf("\n");*/
 	sm9_fn_add(t, t, msk->ks);
+	// sm9_print_bn("t1:",t);// 打印t1
 	if (sm9_fn_is_zero(t)) {
 		// 这是一个严重问题，意味着整个msk都需要作废了
+		printf("invalid t1!!!\n");
 		error_print();
 		return -1;
 	}
 
-	// t2 = ks * t1^-1
+	// t2 = ks * t1^-1 （还应该mod N吧？）
 	sm9_fn_inv(t, t);
 	sm9_fn_mul(t, t, msk->ks);
+	// sm9_print_bn("t2:",t);// 打印t2
 
 	// ds = t2 * P1
-	sm9_point_mul_generator(&key->ds, t);
+	sm9_point_mul_generator(&key->ds, t); // 计算出签名主私钥放在key->ds中
 	key->Ppubs = msk->Ppubs;
 
 	return 1;

@@ -126,10 +126,42 @@ int hex2bin(const char *in, size_t inlen, uint8_t *out)
 	return 1;
 }
 
+int hex2bin_r(const char *in, size_t inlen, uint8_t *out)
+{
+	int c;
+    int byte_len = inlen / 2;
+	if (inlen % 2) {
+		error_print_msg("hex %s len = %zu\n", in, inlen);
+		return -1;
+	}
+
+	while (inlen) {
+		if ((c = hexchar2int(*in++)) < 0) {
+			error_print_msg("%d", 5);
+			return -1;
+		}
+		*(out+byte_len-1) = (uint8_t)c << 4;
+		if ((c = hexchar2int(*in++)) < 0) {
+			error_print();
+			return -1;
+		}
+		*(out+byte_len-1) |= (uint8_t)c;
+		inlen -= 2;
+        byte_len -= 1;
+	}
+	return 1;
+}
+
 int hex_to_bytes(const char *in, size_t inlen, uint8_t *out, size_t *outlen)
 {
 	*outlen = inlen/2;
 	return hex2bin(in, inlen, out);
+}
+
+int hex_to_bytes_r(const char *in, size_t inlen, uint8_t *out, size_t *outlen)
+{
+	*outlen = inlen/2;
+	return hex2bin_r(in, inlen, out);
 }
 
 

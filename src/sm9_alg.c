@@ -1405,11 +1405,13 @@ int sm9_point_is_on_curve(const SM9_POINT *P)
 {
 	sm9_fp_t t0, t1, t2;
 	if (sm9_fp_is_one(P->Z)) {
+		//printf("sm9_fp_is_one fps----XXXXXXX\n"); // test only
 		sm9_fp_sqr(t0, P->Y);
 		sm9_fp_sqr(t1, P->X);
 		sm9_fp_mul(t1, t1, P->X);
 		sm9_fp_add(t1, t1, SM9_FIVE);
 	} else {
+		//printf("sm9_fp_is_one fps----YYYYYYY\n"); // test only
 		sm9_fp_sqr(t0, P->X);
 		sm9_fp_mul(t0, t0, P->X);
 		sm9_fp_sqr(t1, P->Z);
@@ -1419,6 +1421,10 @@ int sm9_point_is_on_curve(const SM9_POINT *P)
 		sm9_fp_add(t1, t0, t1);
 		sm9_fp_sqr(t0, P->Y);
 	}
+
+	//sm9_print_bn("t0:",t0);// test only
+	//sm9_print_bn("t1",t1);// test only
+	
 	if (sm9_fp_equ(t0, t1) != 1) {
 		error_print();
 		return 0;
@@ -1570,8 +1576,12 @@ int sm9_twist_point_print(FILE *fp, int fmt, int ind, const char *label, const S
 
 void sm9_twist_point_from_hex(SM9_TWIST_POINT *R, const char hex[65 * 4])
 {
+	//printf("hex1:%s\n",hex);
+	//printf("hex2:%s\n",hex+65*2);
 	sm9_fp2_from_hex(R->X, hex);
+	//sm9_print_bn("ppubs-x:",R->X[0]);sm9_print_bn("ppubs-x2:",R->X[1]);
 	sm9_fp2_from_hex(R->Y, hex + 65 * 2);
+	//sm9_print_bn("ppubs-y:",R->Y[0]);sm9_print_bn("ppubs-y2:",R->Y[1]);
 	sm9_fp2_set_one(R->Z);
 }
 

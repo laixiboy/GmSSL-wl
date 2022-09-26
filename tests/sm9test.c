@@ -515,7 +515,9 @@ err:
 	return -1;
 }
 
+// 主密钥
 #define hex_ks		"000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
+// 签名私钥
 #define hex_ds		"A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3"
 
 int test_sm9_sign() {
@@ -530,17 +532,126 @@ int test_sm9_sign() {
 	uint8_t data[20] = {0x43, 0x68, 0x69, 0x6E, 0x65, 0x73, 0x65, 0x20, 0x49, 0x42, 0x53, 0x20, 0x73, 0x74, 0x61, 0x6E, 0x64, 0x61, 0x72, 0x64};
 	uint8_t IDA[5] = {0x41, 0x6C, 0x69, 0x63, 0x65};
 
-	sm9_bn_from_hex(mpk.ks, hex_ks); sm9_twist_point_mul_generator(&(mpk.Ppubs), mpk.ks);
+	sm9_bn_from_hex(mpk.ks, hex_ks); 
+	sm9_twist_point_mul_generator(&(mpk.Ppubs), mpk.ks);
+
+	//测试用固定数据加载
+	//sm9_twist_point_from_hex(&(mpk.Ppubs),"9f64080b3084f733e48aff4b41b565011ce0711c5e392cfb0ab1b6791b94c408\n" \
+			"29dba116152d1f786ce843ed24a3b573414d2177386a92dd8f14d65696ea5e32\n" \
+			"69850938abea0112b57329f447e3a0cbad3e2fdb1a77f335e89e1408d0ef1c25\n" \
+			"41e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d");
+
 	if (sm9_sign_master_key_extract_key(&mpk, (char *)IDA, sizeof(IDA), &key) < 0) goto err; ++j;
-	sm9_point_from_hex(&ds, hex_ds); if (!sm9_point_equ(&(key.ds), &ds)) goto err; ++j;
+
+	//测试用固定数据加载
+	//sm9_point_from_hex(&key.ds,"a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa69820-78559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d3");
+
+	sm9_point_from_hex(&ds, hex_ds); 
+
+	printf("KGC random ks:-------------------\n");
+	for(int a=7;a>=0;a--){
+		printf("%08lX ",mpk.ks[a]);
+	}
+	printf("\n");
+
+	printf("Ppubs(X,Y,Z):-------------------\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.X[i][a]);
+		}
+		printf(",");
+	}
+	printf("\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.Y[i][a]);
+		}
+		printf(",");
+	}
+	printf("\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.Z[i][a]);
+		}
+	}
+	printf(",\n");
+
+	printf("DSa(X,Y,Z) generated vs loaded:-------------------\n");
+	for(int a=7;a>=0;a--){
+		printf("%08lX ",key.ds.X[a]);
+	}
+	printf(",\n");
+	for(int a=7;a>=0;a--){
+		printf("%08lX ",key.ds.Y[a]);
+	}
+	printf(",\n");
+	for(int a=7;a>=0;a--){
+		printf("%08lX ",key.ds.Z[a]);
+	}
+	printf(",\n");
+
+	if (!sm9_point_equ(&(key.ds), &ds)) {
+		goto err; 
+	} else {
+		printf(">>>>>>>>>>>>>>>>>>> DSa(X,Y,Z) generated vs loaded is EQ <<<<<<<<<<<<<<<<\n");
+	}
+	++j;
 
 	sm9_sign_init(&ctx);
 	sm9_sign_update(&ctx, data, sizeof(data));
-	if (sm9_sign_finish(&ctx, &key, sig, &siglen) < 0) goto err; ++j;
+	uint8_t* p_sig = sig;
+	if (sm9_sign_finish(&ctx, &key, p_sig, &siglen) < 0) goto err; ++j;
+
+	char sig_der_str[1000] = {'\0'};
+	printf("signature(DER)(str len:%ld):\t",siglen);
+	for (int a = siglen-1; a >= 0; a--) {
+		(void)sprintf(sig_der_str + 2*(siglen-1-a), "%02X", sig[a]);
+	}
+	printf("%s\n",sig_der_str);
+
+	//测试生成和加载
+	sm9_fp4_t ppubs;
+	char ppubs_str[260] = {'\0'};
+	char ds_str[130] = {'\0'};
+	sm9_twist_point_get_xy(&mpk.Ppubs,ppubs[1],ppubs[0]);
+	sm9_fp4_to_hex(ppubs,ppubs_str);
+	int ppubs_str_len = (int)strlen(ppubs_str);
+	sm9_twist_point_from_hex(&(mpk.Ppubs),ppubs_str);
+	printf("out and reload ppubs str:%s\n",ppubs_str);
+
+	/* 验证 */
 
 	sm9_verify_init(&ctx);
 	sm9_verify_update(&ctx, data, sizeof(data));
-	if (sm9_verify_finish(&ctx, sig, siglen, &mpk, (char *)IDA, sizeof(IDA)) != 1) goto err; ++j;
+	//if (sm9_verify_finish(&ctx, sig, siglen, &mpk, (char *)IDA, sizeof(IDA)) != 1) goto err; ++j;
+
+	uint8_t *p_sig_der = sig;
+	printf("siglen:%ld,IDA size:%ld\n",siglen,sizeof(IDA));
+	SM9_SIGNATURE signature;
+
+	printf("Ppubs(X,Y,Z):-------------------\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.X[i][a]);
+		}
+		printf(",");
+	}
+	printf("\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.Y[i][a]);
+		}
+		printf(",");
+	}
+	printf("\n");
+	for(int i=2-1;i>=0;i--){
+		for(int a=7;a>=0;a--){
+			printf("%08lX ",mpk.Ppubs.Z[i][a]);
+		}
+	}
+	printf(",\n");
+
+	if(1 != zmn_sm9_verify_finish(&ctx,p_sig_der,siglen,&mpk, (const char *)IDA, sizeof(IDA),&signature)) goto err; ++j;
 
 	printf("%s() ok\n", __FUNCTION__);
 	return 1;
@@ -606,18 +717,207 @@ err:
 	return -1;
 }
 
+int test_zmn_sm9_sign(){
+	char sig_h_str[64] = {'\0'};
+	int sig_h_str_len = 0;
+	char sig_Sx_str[129] = {'\0'};
+	int sig_Sx_str_len = 0;
+	char sig_Sy_str[129] = {'\0'};
+	int sig_Sy_str_len = 0;
+	char sig_Sz_str[129] = {'\0'};
+	int sig_Sz_str_len = 0;
+	char sig_der_str[1000] = {'\0'};
+	int sig_der_str_len = 0;
+
+	char Hash_data_str[64+1] = {'\0'};
+
+	char* IDA_str = "416C696365";
+	int IDA_str_len = strlen(IDA_str);
+
+	char* data_str = "4368696E65736520494253207374616E64617264";
+	int data_str_len = strlen(data_str);
+
+	char ks_str[512] = {'\0'};
+	//char* ks_str = "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4";
+	int ks_str_len = strlen(ks_str);
+
+	char ds_str[512] = {'\0'};
+	//char* ds_str = "A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3";
+	int ds_str_len = strlen(ds_str);
+	
+	char ppub_str[512] = {'\0'};
+	//char *ppub_str = "9F64080B3084F733E48AFF4B41B565011CE0711C5E392CFB0AB1B6791B94C408-29DBA116152D1F786CE843ED24A3B573414D2177386A92DD8F14D65696EA5E32\n" \
+		"69850938ABEA0112B57329F447E3A0CBAD3E2FDB1A77F335E89E1408D0EF1C25-41E00A53DDA532DA1A7CE027B7A46F741006E85F5CDFF0730E75C05FB4E3216D";
+	int ppub_str_len = strlen(ppub_str);
+	int ret = 0;
+
+	printf("\n******************* create random *******************\n");
+
+	zmn_sm9_random(IDA_str,IDA_str_len,ks_str,&ks_str_len,ppub_str,&ppub_str_len,ds_str,&ds_str_len);
+
+	if (ks_str_len != strlen(ks_str)
+		|| ds_str_len != strlen(ds_str)
+		|| ppub_str_len != strlen(ppub_str)){
+		printf("[X][X][X] invalid length of parameters\n");
+		return -1;
+	}
+
+	printf("\n------------sign random generated-----------\n");
+	printf("IDA(%d):\t%s\n",IDA_str_len,IDA_str);
+	printf("ks(%d):\t%s\n",ks_str_len,ks_str);
+	printf("ppub(%d):\t%s\n",ppub_str_len,ppub_str);
+	printf("ds(%d):\t%s\n",ds_str_len,ds_str);
+	printf("------------sign random generated-----------\n\n");
+
+	printf("\n******************* sign *******************\n");
+	ret = zmn_sm9_sign(0,
+			/*data*/data_str,data_str_len,
+			/*ida*/IDA_str,
+			IDA_str_len,
+			/*ks*/ks_str,
+			ks_str_len,
+			/*ds*/ds_str,ds_str_len,
+			ppub_str,
+			ppub_str_len,
+			sig_h_str,&sig_h_str_len,
+			sig_Sx_str,&sig_Sx_str_len,
+			sig_Sy_str,&sig_Sy_str_len,
+			sig_Sz_str,&sig_Sz_str_len,
+			sig_der_str,&sig_der_str_len,
+			Hash_data_str);
+
+	if(ret==1){
+		
+		printf("\n******************* verify sign *******************\n");
+
+		Hash_data_str[0] = '\0';
+		ret = zmn_sm9_sign(1,
+			/*data*/data_str,data_str_len,
+			/*ida*/IDA_str,
+			IDA_str_len,
+			/*ks*/ks_str,
+			ks_str_len,
+			/*ds*/ds_str,
+			ds_str_len,
+			ppub_str,
+			ppub_str_len,
+			sig_h_str,&sig_h_str_len,
+			sig_Sx_str,&sig_Sx_str_len,
+			sig_Sy_str,&sig_Sy_str_len,
+			sig_Sz_str,&sig_Sz_str_len,
+			sig_der_str,&sig_der_str_len,
+			Hash_data_str);
+	} else {
+		printf("sign not passed, not process sign-verify\n");
+		return -1;
+	}
+
+	return 1;
+}
+
+int test_zmn_sm9_random(){
+
+	char ks_str[64+1] = {'\0'};
+	int ks_str_len = 0;
+	char ppubs_str[259+1] = {'\0'};
+	int ppubs_str_len = 0;
+	char ds_str[129+1] = {'\0'};
+	int ds_str_len = 0;
+
+	printf("\n******************* process random *******************\n");
+	zmn_sm9_random("416C696365",10,
+		ks_str,&ks_str_len,
+		ppubs_str,&ppubs_str_len,
+		ds_str,&ds_str_len);
+
+	printf("ks(len:%d):----------\n%s\n",ks_str_len,ks_str);
+	printf("ppubs(len:%d):----------\n%s\n",ppubs_str_len,ppubs_str);
+	printf("ds(len:%d):----------\n%s\n",ds_str_len,ds_str);
+	return 1;
+}
+
+int test_zmn_sm9_enc(){
+	char m_str[2048] = {'\0'};
+	int m_str_len = 0;
+	char pt_str[2048] = {'\0'}; //明文
+	int pt_str_len = 0; //明文
+
+	char* IDA_str = "426f62";
+	int IDA_str_len = strlen(IDA_str);
+	char* data_str = "686168616861686168616861";/*"4368696E65736520494253207374616E64617264"*/
+	int data_str_len = strlen(data_str);
+
+	char ks_str[512] = {'\0'};
+	//char* ks_str = "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4";
+	int ks_str_len = strlen(ks_str);
+
+	char ds_str[512] = {'\0'};
+	//char* ds_str = "A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3";
+	int ds_str_len = 0;
+
+	char ppub_der_str[512] = {'\0'};
+	//char *ppub_str = "9F64080B3084F733E48AFF4B41B565011CE0711C5E392CFB0AB1B6791B94C408-29DBA116152D1F786CE843ED24A3B573414D2177386A92DD8F14D65696EA5E32\n" \
+		"69850938ABEA0112B57329F447E3A0CBAD3E2FDB1A77F335E89E1408D0EF1C25-41E00A53DDA532DA1A7CE027B7A46F741006E85F5CDFF0730E75C05FB4E3216D";
+	int ppub_der_str_len = 0;
+
+	int ret = 0;
+
+	printf("\n******************* encrypt create random *******************\n");
+
+	zmn_sm9_enc_random(IDA_str,IDA_str_len,ks_str,&ks_str_len,ppub_der_str,&ppub_der_str_len,ds_str,&ds_str_len);
+
+	//ks_str_len = strlen(ks_str);
+	//ds_str_len = strlen(ds_str);
+	//ppub_str_len = strlen(ppub_str);
+
+	printf("\n------------enc random generated-----------\n");
+	printf("IDb(%d):\t%s\n",IDA_str_len,IDA_str);
+	printf("ke(%d):\t%s\n",ks_str_len,ks_str);
+	printf("ppub(DER)(%d):\t%s\n",ppub_der_str_len,ppub_der_str);
+	printf("de(%d):\t%s\n",ds_str_len,ds_str);
+	printf("------------enc random generated-----------\n\n");
+
+	printf("\n******************* encrypt *******************\n");
+
+	ret = zmn_sm9_encrypt(0,
+		/*ida*/IDA_str,IDA_str_len,
+		/*data*/data_str,data_str_len,
+		ppub_der_str,ppub_der_str_len,
+		/*ds*/ds_str,ds_str_len,
+		m_str,&m_str_len);
+
+	printf("process encrypt result: %d\n", ret);
+	if(ret==1){
+
+		printf("\n******************* decrypt *******************\n");
+
+		ret = zmn_sm9_encrypt(1,
+			/*ida*/IDA_str,IDA_str_len,
+			/*data*/m_str,m_str_len,
+			ppub_der_str,ppub_der_str_len,
+			/*ds*/ds_str,ds_str_len,
+			pt_str,&pt_str_len);
+	} else {
+		printf("encrypt not passed, not process decrypt\n");
+	}
+}
 int main(void) {
-	if (test_sm9_fp() != 1) goto err;
-	if (test_sm9_fn() != 1) goto err;
-	if (test_sm9_fp2() != 1) goto err;
-	if (test_sm9_fp4() != 1) goto err;
-	if (test_sm9_fp12() != 1) goto err;
-	if (test_sm9_point() != 1) goto err;
-	if (test_sm9_twist_point() != 1) goto err;
-	if (test_sm9_pairing() != 1) goto err;
-	if (test_sm9_sign() != 1) goto err;
-	if (test_sm9_ciphertext() != 1) goto err;
-	if (test_sm9_encrypt() != 1) goto err;
+
+	// if (test_sm9_fp() != 1) goto err;
+	// if (test_sm9_fn() != 1) goto err;
+	// if (test_sm9_fp2() != 1) goto err;
+	// if (test_sm9_fp4() != 1) goto err;
+	// if (test_sm9_fp12() != 1) goto err;
+	// if (test_sm9_point() != 1) goto err;
+	// if (test_sm9_twist_point() != 1) goto err;
+	// if (test_sm9_pairing() != 1) goto err;
+	// if (test_sm9_sign() != 1) goto err;
+	// if (test_zmn_sm9_random() !=1) goto err;
+	// if (test_sm9_ciphertext() != 1) goto err;
+	//if (test_sm9_encrypt() != 1) goto err;
+	if (test_zmn_sm9_sign() !=1) goto err;
+	//if (test_zmn_sm9_enc() !=1) goto err;
+	
 
 	printf("%s all tests passed\n", __FILE__);
 	return 0;
