@@ -186,9 +186,11 @@ int asn1_data_to_der(const uint8_t *data, size_t datalen, uint8_t **out, size_t 
 int asn1_tag_from_der(int tag, const uint8_t **in, size_t *inlen)
 {
 	if (*inlen == 0) {
+		printf("[X][X][X][X][X][X]*inlen == 0\n");//test only
 		return 0;
 	}
 	if  (**in != tag) {
+		printf("[X][X][X][X][X][X]**in != tag\n");//test only
 		return 0;
 	}
 	(*in)++;
@@ -299,6 +301,7 @@ int asn1_type_from_der(int tag, const uint8_t **d, size_t *dlen, const uint8_t *
 {
 	int ret;
 	if ((ret = asn1_tag_from_der(tag, in, inlen)) != 1) {
+		printf("asn1_tag_from_der ret:%d\n",ret);
 		if (ret < 0) error_print();
 		else {
 			*d = NULL;
@@ -306,6 +309,24 @@ int asn1_type_from_der(int tag, const uint8_t **d, size_t *dlen, const uint8_t *
 		}
 		return ret;
 	}
+
+	//test only
+	/*ret = asn1_length_from_der(dlen, in, inlen);
+	printf("asn1_length_from_der ret:%d\n",ret);
+	if(ret == 1){
+		ret = asn1_data_from_der(d, *dlen, in, inlen);
+		printf("asn1_data_from_der ret:%d\n",ret);
+		if(ret != 1){
+			printf("bbbbbbbb\n");
+			error_print();
+			return -1;
+		}
+	} else {
+		error_print();
+		return -1;
+	}*/
+	//test only
+
 	if (asn1_length_from_der(dlen, in, inlen) != 1
 		|| asn1_data_from_der(d, *dlen, in, inlen) != 1) {
 		error_print();

@@ -216,3 +216,5 @@ include/openssl/srp.h
 /rust
 /python
 /build
+
+/.vscode
