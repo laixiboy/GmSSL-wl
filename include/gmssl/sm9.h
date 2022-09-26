@@ -108,62 +108,6 @@ int  sm9_bn_from_hex(sm9_bn_t r, const char hex[64]);
 int  sm9_bn_print(FILE *fp, int fmt, int ind, const char *label, const sm9_bn_t a);
 void sm9_print_bn(const char *prefix, const sm9_bn_t a); // 标准打印格式
 
-/* 1: 成功 非1:失败*/
-void zmn_sm9_random(char* IDA_str,/* 输入：身份标识，十六进制字符，最多100个字符 */
-		size_t IDA_str_len, /* 输入：身份标示的hex字符个数 */
-		char* ks_str,/* 输出：主密钥,不足64的话会自动前补0 */
-		int* ks_str_len, /* 输出：主密钥的字符个数 */
-		char* ppubs_str,/* 输出：主公钥,长度不少于64*4+3，格式:"x1-x2\ny1-y2" */
-		int* ppubs_str_len,/* 输出：主公钥的字符个数 */
-		char* ds_str,/* 输出：签名私钥,长度不少于129,格式：“x-y”，不带z */
-		int* ds_str_len/* 输出：签名密钥的字符个数 */);
-
-/* 1: 成功 非1:失败*/
-int zmn_sm9_enc_random(char* IDb_str, /* 输入：解密者的身份标识，十六进制字符，最多100个字符 */
-		int IDb_str_len, /* 输入：解密者的身份标识十六进制字符个数 */
-		char* ke_str,/* 输出：加密主私钥，KGC保存，不给用户，十六进制字符串,64个字符 */
-		int* ke_str_len, /* 输出：加密主私钥的十六进制字符个数 */
-		char* ppubs_der_str,/* 输出：加密主公钥(DER)，用于加密,十六进制字符串,长度最多512个字节（1024个字符） */
-		int* ppubs_der_str_len,/* 输出：加密主公钥(DER)的十六进制字符个数 */
-		char* de_str,/* 输出：加密用户私钥，用于解密，十六进制字符串,长度至少259个字符，不多于300个字符 */
-		int* de_str_len /* 输出：加密用户私钥的十六进制字符个数 */) ;
-
-/* 1: 成功 非1:失败*/
-int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
-		char* data_str, /* 输入（签名用）：消息 或者 输入（验签用）：消息，注意不是摘要后的消息 */
-		int data_str_len, /* hex字符个数 */
-		char* IDA_str, /* 输入：身份标识，十六进制字符，最多100个字符 */
-		int IDA_str_len, /* hex字符个数 */
-		char* ks_str, /* 输入（签名用）：签名主密钥,十六进制字符串，固定64个字符 */
-		int ks_str_len, /* hex字符个数 */
-		char* ds_str,/* 输入（签名用）：签名私钥,十六进制字符，长度不少于129，不多于200个字符,格式：“x-y”，不需要传入z */
-		int ds_str_len, /* hex字符个数 */
-		char* ppubs_str,/* 输入：主公钥,十六进制字符,长度不少于64*4+3(259),不多于300个字符，格式:"x1-x2\ny1-y2" */
-		int ppubs_str_len, /* hex字符个数 */
-		char* sig_h_str,/* 输出(签名用)：签名(h) */
-		int *sig_h_str_len/* 输出(签名用)：签名(g)的长度 */,
-		char* sig_Sx_str,/* 输出(签名用)：签名(S-x) */
-		int *sig_Sx_str_len/* 输出(签名用)：签名(S-x)的长度 */,
-		char* sig_Sy_str,/* 输出(签名用)：签名(S-y) */
-		int *sig_Sy_str_len/* 输出(签名用)：签名(S-y)的长度 */,
-		char* sig_Sz_str,/* 输出(签名用)：签名(S-z) */
-		int *sig_Sz_str_len/* 输出(签名用)：签名(S-z)的长度 */,
-		char* sig_der_str,/* 输出(签名用)：签名(DER格式) 或者 输入(验签用)：签名(DER格式) */
-		int *sig_der_str_len,/* 输出(签名用)：签名(DER格式)的长度 或者 输入(验签用)：签名(DER格式)的长度，十六进制字符，不大于1024个字符 */
-		char* Hash_data_str/* 输出(签名用 或者 验签用)：消息的摘要信息,字符串长度固定为64个 */);  // for zmn project only
-		
-/* 1: 成功 非1:失败*/
-int zmn_sm9_encrypt(int optype,/* 0:加密 1:解密 */
-	char* IDb_str, /* 输入：解密者的身份标识，十六进制字符，最多100个字符 */
-	int IDb_str_len, /* hex字符个数 */
-	char* data_str,/* 输入(加密用)：明文数据，十六进制字符串 或者 输入(解密用)：密文数据，十六进制字符串 */
-	int data_str_len,/* 输入(加密用)：明文数据十六进制字符个数 或者  输入(解密用)：密文数据十六进制字符个数 */
-	char* ppubs_der_str,/* 输入(加密用)：加密主公钥，十六进制字符串, 长度至多2048个字符 */
-	int ppubs_der_str_len,/* 输入(加密用)：加密主公钥的十六进制字符个数 */
-	char* de_str, /* 输入(解密用)：加密私钥，十六进制字符串,长度至少259个字符 */
-	int de_str_len /* 输入(解密用)：加密私钥的十六进制字符个数 */,
-	char* m_str,/* 输出(加密用)：密文数据，十六进制字符串 或者 输出(解密用)：明文数据，十六进制字符串，最大1024个字符 */
-	int* m_str_len/* 输出(加密用)：密文数据十六进制字符个数 或者  输出(解密用)：明文数据十六进制字符个数 */);
 
 typedef sm9_bn_t sm9_fp_t;
 
@@ -526,16 +470,10 @@ typedef struct {
 int sm9_sign_init(SM9_SIGN_CTX *ctx);
 int sm9_sign_update(SM9_SIGN_CTX *ctx, const uint8_t *data, size_t datalen);
 int sm9_sign_finish(SM9_SIGN_CTX *ctx, const SM9_SIGN_KEY *key, uint8_t *sig, size_t *siglen);
-int zmn_sm9_sign_finish(SM9_SIGN_CTX *ctx, const SM9_SIGN_KEY *key, 
-	uint8_t *sig, size_t *siglen,
-	SM9_SIGNATURE* signature);
 int sm9_verify_init(SM9_SIGN_CTX *ctx);
 int sm9_verify_update(SM9_SIGN_CTX *ctx, const uint8_t *data, size_t datalen);
 int sm9_verify_finish(SM9_SIGN_CTX *ctx, const uint8_t *sig, size_t siglen,
 	const SM9_SIGN_MASTER_KEY *mpk, const char *id, size_t idlen);
-int zmn_sm9_verify_finish(SM9_SIGN_CTX *ctx, const uint8_t *sig, size_t siglen,
-	const SM9_SIGN_MASTER_KEY *mpk, const char *id, size_t idlen,
-	SM9_SIGNATURE* signature);
 
 
 /*
