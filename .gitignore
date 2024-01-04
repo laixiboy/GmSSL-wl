@@ -218,3 +218,4 @@ include/openssl/srp.h
 /build
 
 /.vscode
+/.tar

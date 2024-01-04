@@ -131,11 +131,11 @@ int zmn_sm9_enc_random(char* IDb_str, /* 输入：解密者的身份标识，十
 /* 1: 成功 非1:失败*/
 int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
 		char* data_str, /* 输入（签名用）：消息 或者 输入（验签用）：消息，注意不是摘要后的消息 */
-		int data_str_len, /* hex字符个数 */
+		int data_str_len, /* 消息的hex字符个数 */
 		char* IDA_str, /* 输入：身份标识，十六进制字符，最多100个字符 */
-		int IDA_str_len, /* hex字符个数 */
+		int IDA_str_len, /* 身份标识的hex字符个数 */
 		char* ks_str, /* 输入（签名用）：签名主密钥,十六进制字符串，固定64个字符 */
-		int ks_str_len, /* hex字符个数 */
+		int ks_str_len, /* 签名主密钥hex字符个数 */
 		char* ds_str,/* 输入（签名用）：签名私钥,十六进制字符，长度不少于129，不多于200个字符,格式：“x-y”，不需要传入z */
 		int ds_str_len, /* hex字符个数 */
 		char* ppubs_str,/* 输入：主公钥,十六进制字符,长度不少于64*4+3(259),不多于300个字符，格式:"x1-x2\ny1-y2" */

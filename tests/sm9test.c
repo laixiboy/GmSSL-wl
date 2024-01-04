@@ -731,21 +731,21 @@ int test_zmn_sm9_sign(){
 
 	char Hash_data_str[64+1] = {'\0'};
 
-	char* IDA_str = "416C696365";
+	char* IDA_str = "3131";
 	int IDA_str_len = strlen(IDA_str);
 
 	char* data_str = "4368696E65736520494253207374616E64617264";
 	int data_str_len = strlen(data_str);
 
-	char ks_str[512] = {'\0'};
+	char ks_str[64] = {'\0'};
 	//char* ks_str = "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4";
 	int ks_str_len = strlen(ks_str);
 
-	char ds_str[512] = {'\0'};
+	char ds_str[300] = {'\0'};
 	//char* ds_str = "A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3";
 	int ds_str_len = strlen(ds_str);
 	
-	char ppub_str[512] = {'\0'};
+	char ppub_str[300] = {'\0'};
 	//char *ppub_str = "9F64080B3084F733E48AFF4B41B565011CE0711C5E392CFB0AB1B6791B94C408-29DBA116152D1F786CE843ED24A3B573414D2177386A92DD8F14D65696EA5E32\n" \
 		"69850938ABEA0112B57329F447E3A0CBAD3E2FDB1A77F335E89E1408D0EF1C25-41E00A53DDA532DA1A7CE027B7A46F741006E85F5CDFF0730E75C05FB4E3216D";
 	int ppub_str_len = strlen(ppub_str);

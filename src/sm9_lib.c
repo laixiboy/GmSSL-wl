@@ -361,11 +361,15 @@ int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
 		printf("[input]----->ds(len:%d):\t%s\n",  ds_str_len,  ds_str);
 		if(ks_str_len!=64) {
 			printf("ks should be 64, not %d\n", ks_str_len);
+			free(data);
+			free(IDA);
 			return -1;
 		}
 
 		if(ds_str_len!=129) {
 			printf("ds should be 64+64+1, not %d\n", ds_str_len);
+			free(data);
+			free(IDA);
 			return -1;
 		}
 		/* 获取外部输入的主密钥 */
@@ -475,6 +479,8 @@ int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
 		/* 检测S在不在Curve上 */
 		if (!sm9_point_is_on_curve(&signature.S)) {
 			error_print();
+			free(data);
+			free(IDA);
 			return -1;
 		} else {
 			printf("<<<<<<<<<<<<<<<<<<<<<<<<< checked!,signature-S is on curve >>>>>>>>>>>>>>>>>>>>>\n");
@@ -504,6 +510,8 @@ int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
 		} else {
 			printf("verify must need Ppubs\n");
 			error_print();
+			free(data);
+			free(IDA);
 			return -1;
 		}
 
@@ -516,6 +524,8 @@ int zmn_sm9_sign(int op_type /* 0:签名 1:验签 */,
 		} else {
 			printf("signature(DER) must have, not %d\n", *sig_der_str_len);
 			error_print();
+			free(data);
+			free(IDA);
 			return -1;
 		}
 
