@@ -33,7 +33,7 @@ int sm9sign_main(int argc, char **argv)
 	SM9_SIGN_KEY key;
 	SM9_SIGN_CTX ctx;
 	uint8_t buf[4096];
-	ssize_t len;
+	size_t len;
 	uint8_t sig[SM9_SIGNATURE_SIZE];
 	size_t siglen;
 
@@ -52,14 +52,14 @@ int sm9sign_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				error_print();
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-key")) {
 			if (--argc < 1) goto bad;
 			keyfile = *(++argv);
-			if (!(keyfp = fopen(keyfile, "r"))) {
+			if (!(keyfp = fopen(keyfile, "rb"))) {
 				error_print();
 				goto end;
 			}
@@ -69,7 +69,7 @@ int sm9sign_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				error_print();
 				goto end;
 			}

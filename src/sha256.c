@@ -1,5 +1,5 @@
 /*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -117,7 +117,7 @@ void sha256_update(SHA256_CTX *ctx, const unsigned char *data, size_t datalen)
 
 	ctx->num &= 0x3f;
 	if (ctx->num) {
-		unsigned int left = SHA256_BLOCK_SIZE - ctx->num;
+		size_t left = SHA256_BLOCK_SIZE - ctx->num;
 		if (datalen < left) {
 			memcpy(ctx->block + ctx->num, data, datalen);
 			ctx->num += datalen;
@@ -132,10 +132,12 @@ void sha256_update(SHA256_CTX *ctx, const unsigned char *data, size_t datalen)
 	}
 
 	blocks = datalen / SHA256_BLOCK_SIZE;
-	sha256_compress_blocks(ctx->state, data, blocks);
-	ctx->nblocks += blocks;
-	data += SHA256_BLOCK_SIZE * blocks;
-	datalen -= SHA256_BLOCK_SIZE * blocks;
+	if (blocks) {
+		sha256_compress_blocks(ctx->state, data, blocks);
+		ctx->nblocks += blocks;
+		data += SHA256_BLOCK_SIZE * blocks;
+		datalen -= SHA256_BLOCK_SIZE * blocks;
+	}
 
 	ctx->num = datalen;
 	if (datalen) {
@@ -165,7 +167,6 @@ void sha256_finish(SHA256_CTX *ctx, unsigned char dgst[SHA256_DIGEST_SIZE])
 		PUTU32(dgst, ctx->state[i]);
 		dgst += sizeof(uint32_t);
 	}
-	memset(ctx, 0, sizeof(*ctx));
 }
 
 void sha256_digest(const unsigned char *data, size_t datalen,
@@ -175,6 +176,7 @@ void sha256_digest(const unsigned char *data, size_t datalen,
 	sha256_init(&ctx);
 	sha256_update(&ctx, data, datalen);
 	sha256_finish(&ctx, dgst);
+	memset(&ctx, 0, sizeof(ctx));
 }
 
 
@@ -211,4 +213,5 @@ void sha224_digest(const unsigned char *data, size_t datalen,
 	sha224_init(&ctx);
 	sha224_update(&ctx, data, datalen);
 	sha224_finish(&ctx, dgst);
+	memset(&ctx, 0, sizeof(ctx));
 }

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -13,23 +13,16 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-
+#include <gmssl/api.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/*
-Rand Public API
 
-	rand_bytes
+#define RAND_BYTES_MAX_SIZE	(256)
 
-*/
-
-int rand_bytes(uint8_t *buf, size_t buflen);
-
-int rdrand_bytes(uint8_t *buf, size_t buflen);
-int rdseed_bytes(uint8_t *buf, size_t buflen);
+_gmssl_export int rand_bytes(uint8_t *buf, size_t buflen);
 
 
 #ifdef __cplusplus

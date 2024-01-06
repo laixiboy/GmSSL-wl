@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <gmssl/file.h>
 #include <gmssl/cms.h>
 #include <gmssl/x509.h>
 #include <gmssl/rand.h>
@@ -58,7 +58,6 @@ static int get_files_size(int argc, char **argv, const char *option, size_t *len
 	char *prog = argv[0];
 	char *file = NULL;
 	FILE *fp = NULL;
-	struct stat st;
 
 	argc--;
 	argv++;
@@ -66,21 +65,24 @@ static int get_files_size(int argc, char **argv, const char *option, size_t *len
 	*len = 0;
 	while (argc > 1) {
 		if (!strcmp(*argv, option)) {
+			size_t fsize;
+
 			if (--argc < 1) {
 				fprintf(stderr, "%s: '%s' option value missing\n", prog, *argv);
 				return -1;
 			}
 			file = *(++argv);
-			if (!(fp = fopen(file, "r"))) {
+
+			if (!(fp = fopen(file, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failed : %s\n", prog, file, strerror(errno));
 				return -1;
 			}
-			if (fstat(fileno(fp), &st) < 0) {
+			if (file_size(fp, &fsize) != 1) {
 				fprintf(stderr, "%s: access '%s' failed : %s\n", prog, file, strerror(errno));
 				fclose(fp);
 				return -1;
 			}
-			*len += st.st_size;
+			*len += fsize;
 			fclose(fp);
 		}
 		argc--;
@@ -155,7 +157,7 @@ int cmsencrypt_main(int argc, char **argv)
 			size_t certlen;
 			if (--argc < 1) goto bad;
 			certfile = *(++argv);
-			if (!(certfp = fopen(certfile, "r"))) {
+			if (!(certfp = fopen(certfile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, certfile, strerror(errno));
 				goto end;
 			}
@@ -169,7 +171,7 @@ int cmsencrypt_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, infile, strerror(errno));
 				goto end;
 			}
@@ -180,7 +182,7 @@ int cmsencrypt_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, outfile, strerror(errno));
 				goto end;
 			}
@@ -227,6 +229,7 @@ end:
 	if (infile && infp) fclose(infp);
 	if (outfile && outfp) fclose(outfp);
 	if (rcpt_certs) free(rcpt_certs);
+	if (inbuf) free(inbuf);
 	if (cms) free(cms);
 	return ret;
 }

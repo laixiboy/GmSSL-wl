@@ -1,15 +1,4 @@
-# GmSSL 3.0
-
-[![CMake](https://github.com/guanzhi/GmSSL/workflows/CMake/badge.svg)](https://github.com/guanzhi/GmSSL/actions/workflows/cmake.yml)
-
-GmSSL的2.x版本的开发始于2016年，目前主分支在功能上实现了对主要国密算法、标准和协议的覆盖，并成功应用于多种互联网场景中。但是随着GmSSL在物联网、区块链等新场景中的应用，及在密码产品合规检测过程中的实践，我们发现应用对GmSSL提出了一些新的需求。由于很难在基于OpenSSL的GmSSL 2.x版本上满足新需求，因此我们重新设计了GmSSL的架构，GmSSL也迎来第三个大版本——GmSSL 3.0。
-
-## 主要特性
-
-* 超轻量：GmSSL 3.0大幅度降低了内存需求和二进制代码体积，不依赖动态内存，可以用于无操作系统的低功耗嵌入式环境(MCU、SOC等)，开发者也可以更容易地将国密算法和SSL协议嵌入到现有的项目中。
-* 更合规：GmSSL 3.0 可以配置为仅包含国密算法和国密协议(TLCP协议)，依赖GmSSL 的密码应用更容易满足密码产品型号检测的要求，避免由于混杂非国密算法、不安全算法等导致的安全问题和合规问题。
-* 更安全：TLS 1.3在安全性和通信延迟上相对之前的TLS协议有巨大的提升，GmSSL 3.0支持TLS 1.3协议和RFC 8998的国密套件。GmSSL 3.0默认支持密钥的加密保护，提升了密码算法的抗侧信道攻击能力。
-* 跨平台：GmSSL 3.0更容易跨平台，构建系统不再依赖Perl，默认的CMake构建系统可以容易地和Visual Studio、Android NDK等默认编译工具配合使用，开发者也可以手工编写Makefile在特殊环境中编译、剪裁。
+# GmSSL 3.1.1-wl
 
 ## 编译与安装
 
@@ -22,6 +11,23 @@ cmake ..
 make
 make test
 sudo make install
+```
+在`make install`完成后，GmSSL会在默认安装目录中安装`gmssl`命令行工具，在头文件目录中创建`gmssl`目录，并且在库目录中安装`libgmssl.a`、`libgmssl.so`等库文件。
+
+### Visual Studio环境编译
+
+在Visual Studio命令提示符下执行：
+
+```bash
+mkdir wbuild
+cd wbuild
+cmake .. -G "NMake Makefiles"
+nmake
+```
+如果需要重新编译可用
+```
+nmake clean
+nmake all
 ```
 
 ## 主要功能
@@ -47,9 +53,3 @@ sudo make install
 * TLCP 1.1，支持密码套`TLS_ECC_SM4_CBC_SM3 {0xE0,0x13}` (GB/T 38636-2020、GM/T 0024-2014)
 * TLS 1.2，支持密码套件`TLS_ECDHE_SM4_CBC_SM3 {0xE0,0x11}` (GB/T 38636-2020、GM/T 0024-2014)
 * TLS 1.3，支持密码套件`TLS_SM4_GCM_SM3 {0x00,0xC6}`  (RFC 8998)
-
-## 典型应用
-
-#### Nginx-with-GmSSL3.0
-
-GmSSL支持Nginx的适配，并提供了Docker实现，具体参见[Nginx-with-GmSSL3.0](https://github.com/zhaoxiaomeng/Nginx-with-GmSSLv3) 项目。

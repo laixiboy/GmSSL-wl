@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <gmssl/file.h>
 #include <gmssl/x509.h>
 #include <gmssl/cms.h>
 #include <gmssl/error.h>
@@ -49,22 +49,11 @@ int cmssign_main(int argc, char **argv)
 	SM2_KEY key;
 	uint8_t cert[1024];
 	size_t certlen;
-	struct stat st;
 	uint8_t *in = NULL;
 	size_t inlen;
 	uint8_t *cms = NULL;
 	size_t cmslen, cms_maxlen;
 	CMS_CERTS_AND_KEY cert_and_key;
-
-	int content_type;
-	uint8_t *content = NULL;
-	size_t content_len;
-
-	const uint8_t *rcpt_infos;
-	size_t rcpt_infos_len;
-	const uint8_t *shared_info1;
-	const uint8_t *shared_info2;
-	size_t shared_info1_len, shared_info2_len;
 
 	argc--;
 	argv++;
@@ -82,7 +71,7 @@ int cmssign_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-key")) {
 			if (--argc < 1) goto bad;
 			keyfile = *(++argv);
-			if (!(keyfp = fopen(keyfile, "r"))) {
+			if (!(keyfp = fopen(keyfile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, keyfile, strerror(errno));
 				goto end;
 			}
@@ -92,21 +81,21 @@ int cmssign_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-cert")) {
 			if (--argc < 1) goto bad;
 			certfile = *(++argv);
-			if (!(certfp = fopen(certfile, "r"))) {
+			if (!(certfp = fopen(certfile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, certfile, strerror(errno));
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, infile, strerror(errno));
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, outfile, strerror(errno));
 				goto end;
 			}
@@ -163,12 +152,8 @@ bad:
 	cert_and_key.certs_len = certlen;
 	cert_and_key.sign_key = &key;
 
-	if (fstat(fileno(infp), &st) < 0) {
-		fprintf(stderr, "%s: access file error : %s\n", prog, strerror(errno));
-		goto end;
-	}
-	if ((inlen = st.st_size) <= 0) {
-		fprintf(stderr, "%s: invalid input length\n", prog);
+	if (file_size(infp, &inlen) != 1) {
+		fprintf(stderr, "%s: get input length failed\n", prog);
 		goto end;
 	}
 	if (!(in = malloc(inlen))) {

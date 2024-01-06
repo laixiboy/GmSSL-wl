@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -20,7 +20,6 @@
 #include <gmssl/digest.h>
 #include <gmssl/error.h>
 #include <gmssl/x509.h>
-#include <gmssl/x509_str.h>
 #include <gmssl/x509_alg.h>
 #include <gmssl/x509_ext.h>
 #include <gmssl/x509_crl.h>
@@ -345,17 +344,26 @@ int cms_enced_content_info_encrypt_to_der(
 {
 	int ret;
 	SM4_KEY sm4_key;
-	uint8_t enced_content[32 + content_len]; // FIXME: 如果content_len 过长，会直接导致segment fault
-	size_t enced_content_len = 100;
+	uint8_t* enced_content = NULL;							
+	size_t enced_content_len = 100; // FIXME: why 100?					
+
+	if (!(enced_content = malloc(32 + content_len))) {
+		error_print();
+		return -1;
+	}
+
+
 
 	if (enc_algor != OID_sm4_cbc || keylen != 16 || ivlen != 16) {
 		error_print();
+		if (enced_content) free(enced_content);
 		return -1;
 	}
 
 	sm4_set_encrypt_key(&sm4_key, key);
 	if (sm4_cbc_padding_encrypt(&sm4_key, iv, content, content_len,
 		enced_content, &enced_content_len) != 1) {
+		if (enced_content) free(enced_content);
 		memset(&sm4_key, 0, sizeof(SM4_KEY));
 		error_print();
 		return -1;
@@ -367,9 +375,12 @@ int cms_enced_content_info_encrypt_to_der(
 		shared_info1, shared_info1_len,
 		shared_info2, shared_info2_len,
 		out, outlen)) != 1) {
+		if (enced_content) free(enced_content);
 		if (ret < 0) error_print();
 		return ret;
 	}
+
+	free(enced_content); //FIXME: use goto end to clean enced_content
 	return 1;
 }
 
@@ -382,7 +393,6 @@ int cms_enced_content_info_decrypt_from_der(
 	const uint8_t **shared_info2, size_t *shared_info2_len,// 支持可选null输出	
 	const uint8_t **in, size_t *inlen)
 {
-	int ret;
 	SM4_KEY sm4_key;
 	const uint8_t *iv;
 	size_t ivlen;
@@ -715,8 +725,8 @@ int cms_signer_info_print(FILE *fp, int fmt, int ind, const char *label, const u
 	format_print(fp, fmt, ind, "digestAlgorithm: %s\n", x509_digest_algor_name(val));
 	if ((ret = asn1_implicit_set_from_der(0, &p, &len, &d, &dlen)) < 0) goto err;
 	if (ret) x509_attributes_print(fp, fmt, ind, "authenticatedAttributes", p, len);
-	if (x509_signature_algor_from_der(&val, &d, &dlen) != 1) goto err;
-	format_print(fp, fmt, ind, "digestEncryptionAlgorithm: %s\n", x509_signature_algor_name(val));
+	if (asn1_sequence_from_der(&p, &len, &d, &dlen) != 1) goto err;
+	x509_signature_algor_print(fp, fmt, ind, "digestEncryptionAlgorithm", p, len);
 	if (asn1_octet_string_from_der(&p, &len, &d, &dlen) != 1) goto err;
 	format_bytes(fp, fmt, ind, "encryptedDigest", p, len);
 	if ((ret = asn1_implicit_set_from_der(1, &p, &len, &d, &dlen)) < 0) goto err;
@@ -740,14 +750,12 @@ int cms_signer_info_sign_to_der(
 	int fixed_outlen = 1;
 	uint8_t dgst[SM3_DIGEST_SIZE];
 	uint8_t sig[SM2_MAX_SIGNATURE_SIZE];
-	size_t siglen;
+	size_t siglen = SM2_signature_typical_size;
 
 	sm3_update(&ctx, authed_attrs, authed_attrs_len);
 	sm3_finish(&ctx, dgst);
 
-
-
-	if (sm2_sign_ex(sign_key, fixed_outlen, dgst, sig, &siglen) != 1) {
+	if (sm2_sign_fixlen(sign_key, dgst, siglen, sig) != 1) {
 		error_print();
 		return -1;
 	}
@@ -1048,7 +1056,6 @@ int cms_signed_data_sign_to_der(
 	size_t digest_algors_cnt = sizeof(digest_algors)/sizeof(int);
 	uint8_t content_header[256];
 	size_t content_header_len;
-	const uint8_t *certs;
 	size_t certs_len = 0;
 	uint8_t signer_infos[512];
 	size_t signer_infos_len = 0;
@@ -1306,7 +1313,8 @@ int cms_recipient_info_encrypt_to_der(
 		return -1;
 	}
 
-	if (sm2_encrypt_ex(public_key, fixed_outlen, in, inlen, enced_key, &enced_key_len) != 1) {
+	if (sm2_encrypt_fixlen(public_key, in, inlen, SM2_ciphertext_typical_point_size,
+		enced_key, &enced_key_len) != 1) {
 		error_print();
 		return -1;
 	}
@@ -1327,7 +1335,6 @@ int cms_recipient_info_decrypt_from_der(
 	uint8_t *out, size_t *outlen, size_t maxlen,
 	const uint8_t **in, size_t *inlen)
 {
-	int ret;
 	int version;
 	int pke_algor;
 	const uint8_t *params;
@@ -1478,7 +1485,7 @@ int cms_enveloped_data_from_der(
 
 int cms_enveloped_data_print(FILE *fp, int fmt, int ind, const char *label, const uint8_t *d, size_t dlen)
 {
-	int ret, val;
+	int val;
 	const uint8_t *p;
 	size_t len;
 
@@ -1572,7 +1579,7 @@ int cms_enveloped_data_decrypt_from_der(
 	const uint8_t **shared_info2, size_t *shared_info2_len,
 	const uint8_t **in, size_t *inlen)
 {
-	int ret;
+	int ret = 0;
 	int version;
 	const uint8_t *rcpt_infos;
 	size_t rcpt_infos_len;
@@ -1587,7 +1594,7 @@ int cms_enveloped_data_decrypt_from_der(
 			&enced_content_info, &enced_content_info_len,
 			in, inlen) != 1
 		|| asn1_check(version == CMS_version_v1) != 1) {
-		return ret;
+		return -1;
 	}
 	*recipient_infos = rcpt_infos;
 	*recipient_infos_len = rcpt_infos_len;
@@ -2363,8 +2370,6 @@ int cms_deenvelop_and_verify(const uint8_t *cms, size_t cmslen,
 	int cms_type;
 	const uint8_t *cms_content;
 	size_t cms_content_len;
-	int digest_algors[4];
-	size_t digest_algors_cnt;
 
 	if (cms_content_info_from_der(&cms_type, &cms_content, &cms_content_len, &cms, &cmslen) != 1
 		|| asn1_check(cms_type == OID_cms_signed_and_enveloped_data) != 1

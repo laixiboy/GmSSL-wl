@@ -36,11 +36,13 @@
 
 int main(void)
 {
+// currently we only has SHA-1 test suites
+#ifdef ENABLE_BROKEN_CRYPTO
 	HASH_DRBG drbg;
 
 	uint8_t entropy[sizeof(EntropyInput)/2];
 	uint8_t nonce[sizeof(Nonce)/2];
-	uint8_t personalstr[sizeof(PersonalizationString)/2];
+	uint8_t personalstr[1 + sizeof(PersonalizationString)/2];
 	uint8_t v[sizeof(V0)/2];
 	uint8_t c[sizeof(C0)/2];
 	uint8_t entropy_pr1[sizeof(EntropyInputPR1)/2];
@@ -87,6 +89,6 @@ int main(void)
 		printf("%02x", out[i]);
 	}
 	printf("\n");
-
+#endif
 	return 0;
 }

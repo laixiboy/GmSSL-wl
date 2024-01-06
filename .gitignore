@@ -15,6 +15,8 @@
 /configdata.pm
 /build
 /Makefile
+/.vscode
+/*.tar
 
 # *all* Makefiles
 #Makefile

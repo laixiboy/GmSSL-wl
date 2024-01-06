@@ -11,7 +11,10 @@
 #ifndef SDFUTIL_SDF_METH_H
 #define SDFUTIL_SDF_METH_H
 
+
+#include <gmssl/dylib.h>
 #include "sdf.h"
+
 
 typedef int (*SDF_OpenDevice_FuncPtr)(
 	void **phDeviceHandle);
@@ -346,7 +349,8 @@ typedef int (*SDF_DeleteObject_FuncPtr)(
 
 typedef struct sdf_method_st {
 	char *name;
-	void *dso;
+	dylib_handle_t dso;
+
 	SDF_OpenDevice_FuncPtr OpenDevice;
 	SDF_CloseDevice_FuncPtr CloseDevice;
 	SDF_OpenSession_FuncPtr OpenSession;

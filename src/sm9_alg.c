@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -18,6 +18,7 @@
 #include <gmssl/sm9.h>
 #include <gmssl/error.h>
 #include <gmssl/endian.h>
+#include <gmssl/rand.h>
 
 
 const sm9_bn_t SM9_ZERO = {0,0,0,0,0,0,0,0};
@@ -76,6 +77,26 @@ const SM9_TWIST_POINT _SM9_Ppubs = {
 const SM9_TWIST_POINT *SM9_Ppubs = &_SM9_Ppubs;
 
 
+void sm9_bn_set_zero(sm9_bn_t r)
+{
+	sm9_bn_copy(r, SM9_ZERO);
+}
+
+void sm9_bn_set_one(sm9_bn_t r)
+{
+	sm9_bn_copy(r, SM9_ONE);
+}
+
+int sm9_bn_is_zero(const sm9_bn_t a)
+{
+	return (sm9_bn_cmp(a, SM9_ZERO) == 0);
+}
+
+int sm9_bn_is_one(const sm9_bn_t a)
+{
+	return (sm9_bn_cmp(a, SM9_ONE) == 0);
+}
+
 void sm9_bn_to_bytes(const sm9_bn_t a, uint8_t out[32])
 {
 	int i;
@@ -94,7 +115,7 @@ void sm9_bn_from_bytes(sm9_bn_t r, const uint8_t in[32])
 	}
 }
 
-int sm9_bn_from_hex(sm9_bn_t r, const char hex[64])
+int sm9_bn_from_hex(sm9_bn_t r, const char* hex)
 {
 	uint8_t buf[32];
 	size_t len;
@@ -125,7 +146,7 @@ void sm9_bn_to_bits(const sm9_bn_t a, char bits[256])
 {
 	int i, j;
 	for (i = 7; i >= 0; i--) {
-		uint32_t w = a[i];
+		uint32_t w = (uint32_t)a[i];
 		for (j = 0; j < 32; j++) {
 			*bits++ = (w & 0x80000000) ? '1' : '0';
 			w <<= 1;
@@ -187,15 +208,12 @@ void sm9_bn_sub(sm9_bn_t ret, const sm9_bn_t a, const sm9_bn_t b)
 
 int sm9_bn_rand_range(sm9_bn_t r, const sm9_bn_t range)
 {
-	FILE *fp;
 	uint8_t buf[256];
 
-	fp = fopen("/dev/urandom", "rb");
 	do {
-		fread(buf, 1, 256, fp);
+		rand_bytes(buf, sizeof(buf));
 		sm9_bn_from_bytes(r, buf);
 	} while (sm9_bn_cmp(r, range) >= 0);
-	fclose(fp);
 	return 1;
 }
 
@@ -212,8 +230,9 @@ int sm9_bn_equ(const sm9_bn_t a, const sm9_bn_t b)
 void sm9_fp_add(sm9_fp_t r, const sm9_fp_t a, const sm9_fp_t b)
 {
 	sm9_bn_add(r, a, b);
-	if (sm9_bn_cmp(r, SM9_P) >= 0)
-		return sm9_bn_sub(r, r, SM9_P);
+	if (sm9_bn_cmp(r, SM9_P) >= 0) {
+		sm9_bn_sub(r, r, SM9_P);
+	}
 }
 
 void sm9_fp_sub(sm9_fp_t r, const sm9_fp_t a, const sm9_fp_t b)
@@ -338,7 +357,7 @@ void sm9_fp_mul(sm9_fp_t r, const sm9_fp_t a, const sm9_fp_t b)
 	}
 
 	/* q = zh * mu // (2^32)^9 */
-	for (i = 0; i < 18; i++) {
+	for (i = 0; i < 9; i++) {
 		s[i] = 0;
 	}
 	for (i = 0; i < 9; i++) {
@@ -355,17 +374,23 @@ void sm9_fp_mul(sm9_fp_t r, const sm9_fp_t a, const sm9_fp_t b)
 	}
 
 	/* q = q * p mod (2^32)^9 */
-	for (i = 0; i < 18; i++) {
+	for (i = 0; i < 8; i++) {
 		s[i] = 0;
 	}
-	for (i = 0; i < 9; i++) {
+	w = 0;
+    for (j = 0; j < 8; j++) {
+		w += s[j] + q[0] * SM9_P[j];
+ 		s[j] = w & 0xffffffff;
+		w >>= 32;
+	}
+	s[8] = w;
+	for (i = 1; i < 9; i++) {
 		w = 0;
-		for (j = 0; j < 8; j++) {
+		for (j = 0; i + j < 9; j++) {
 			w += s[i + j] + q[i] * SM9_P[j];
 			s[i + j] = w & 0xffffffff;
 			w >>= 32;
 		}
-		s[i + 8] = w;
 	}
 	for (i = 0; i < 9; i++) {
 		q[i] = s[i];
@@ -1101,28 +1126,100 @@ void sm9_fp12_mul(sm9_fp12_t r, const sm9_fp12_t a, const sm9_fp12_t b)
 	sm9_fp4_copy(r[2], r2);
 }
 
+// void sm9_fp12_sqr(sm9_fp12_t r, const sm9_fp12_t a)
+// {
+// 	sm9_fp4_t r0, r1, r2, t;
+
+// 	sm9_fp4_sqr(r0, a[0]);
+// 	sm9_fp4_mul_v(t, a[1], a[2]);
+// 	sm9_fp4_dbl(t, t);
+// 	sm9_fp4_add(r0, r0, t);
+
+// 	sm9_fp4_mul(r1, a[0], a[1]);
+// 	sm9_fp4_dbl(r1, r1);
+// 	sm9_fp4_sqr_v(t, a[2]);
+// 	sm9_fp4_add(r1, r1, t);
+
+// 	sm9_fp4_mul(r2, a[0], a[2]);
+// 	sm9_fp4_dbl(r2, r2);
+// 	sm9_fp4_sqr(t, a[1]);
+// 	sm9_fp4_add(r2, r2, t);
+
+// 	sm9_fp4_copy(r[0], r0);
+// 	sm9_fp4_copy(r[1], r1);
+// 	sm9_fp4_copy(r[2], r2);
+// }
+
+void sm9_fp4_div2(sm9_fp4_t r, const sm9_fp4_t a)
+{
+	sm9_fp2_div2(r[0], a[0]);
+	sm9_fp2_div2(r[1], a[1]);
+}
+
+void sm9_fp2_a_mul_u(sm9_fp2_t r, sm9_fp2_t a) {
+	sm9_fp_t r0, a0, a1;
+
+	sm9_fp_copy(a0, a[0]);
+	sm9_fp_copy(a1, a[1]);
+	
+	//r0 = -2 * a1
+	sm9_fp_dbl(r0, a1);
+	sm9_fp_neg(r0, r0);
+	sm9_fp_copy(r[0], r0);
+
+	//r1 = a0
+	sm9_fp_copy(r[1], a0);
+}
+
+void sm9_fp4_a_mul_v(sm9_fp4_t r, sm9_fp4_t a) {
+	sm9_fp2_t r0, a0, a1;
+
+	sm9_fp2_copy(a0, a[0]);
+	sm9_fp2_copy(a1, a[1]);
+
+	//r0 = a1 * u
+	sm9_fp2_a_mul_u(r0, a1);
+	sm9_fp2_copy(r[0], r0);
+
+	//r1 = a0
+	sm9_fp2_copy(r[1], a0);
+}
+
 void sm9_fp12_sqr(sm9_fp12_t r, const sm9_fp12_t a)
 {
-	sm9_fp4_t r0, r1, r2, t;
+	sm9_fp4_t h0, h1, h2, t;
+	sm9_fp4_t s0, s1, s2, s3;
 
-	sm9_fp4_sqr(r0, a[0]);
-	sm9_fp4_mul_v(t, a[1], a[2]);
-	sm9_fp4_dbl(t, t);
-	sm9_fp4_add(r0, r0, t);
+	sm9_fp4_sqr(h0, a[0]);
+	sm9_fp4_sqr(h1, a[2]);
+	sm9_fp4_add(s0, a[2], a[0]);
 
-	sm9_fp4_mul(r1, a[0], a[1]);
-	sm9_fp4_dbl(r1, r1);
-	sm9_fp4_sqr_v(t, a[2]);
-	sm9_fp4_add(r1, r1, t);
+	sm9_fp4_sub(t, s0, a[1]);
+	sm9_fp4_sqr(s1, t);
 
-	sm9_fp4_mul(r2, a[0], a[2]);
-	sm9_fp4_dbl(r2, r2);
-	sm9_fp4_sqr(t, a[1]);
-	sm9_fp4_add(r2, r2, t);
+	sm9_fp4_add(t, s0, a[1]);
+	sm9_fp4_sqr(s0, t);
 
-	sm9_fp4_copy(r[0], r0);
-	sm9_fp4_copy(r[1], r1);
-	sm9_fp4_copy(r[2], r2);
+	sm9_fp4_mul(s2, a[1], a[2]);
+	sm9_fp4_dbl(s2, s2);
+
+	sm9_fp4_add(s3, s0, s1);
+	sm9_fp4_div2(s3, s3);
+	
+	sm9_fp4_sub(t, s3, h1);
+	sm9_fp4_sub(h2, t, h0);
+
+	sm9_fp4_a_mul_v(h1, h1);
+	sm9_fp4_add(h1, h1, s0);
+	sm9_fp4_sub(h1, h1, s2);
+	sm9_fp4_sub(h1, h1, s3);
+
+	sm9_fp4_a_mul_v(s2, s2);
+	sm9_fp4_add(h0, h0, s2);
+
+	sm9_fp4_copy(r[0], h0);
+	sm9_fp4_copy(r[1], h1);
+	sm9_fp4_copy(r[2], h2);
 }
 
 void sm9_fp12_inv(sm9_fp12_t r, const sm9_fp12_t a)
@@ -1206,7 +1303,7 @@ void sm9_fp2_conjugate(sm9_fp2_t r, const sm9_fp2_t a)
 
 void sm9_fp2_frobenius(sm9_fp2_t r, const sm9_fp2_t a)
 {
-	return sm9_fp2_conjugate(r, a);
+	sm9_fp2_conjugate(r, a);
 }
 
 // beta   = 0x6c648de5dc0a3f2cf55acc93ee0baf159f9d411806dc5177f5b21fd3da24d011
@@ -1238,7 +1335,7 @@ void sm9_fp4_conjugate(sm9_fp4_t r, const sm9_fp4_t a)
 
 void sm9_fp4_frobenius2(sm9_fp4_t r, const sm9_fp4_t a)
 {
-	return sm9_fp4_conjugate(r, a);
+	sm9_fp4_conjugate(r, a);
 }
 
 void sm9_fp4_frobenius3(sm9_fp4_t r, const sm9_fp4_t a)
@@ -1421,10 +1518,10 @@ int sm9_point_is_on_curve(const SM9_POINT *P)
 		sm9_fp_add(t1, t0, t1);
 		sm9_fp_sqr(t0, P->Y);
 	}
-
+	
 	//sm9_print_bn("t0:",t0);// test only
 	//sm9_print_bn("t1",t1);// test only
-	
+
 	if (sm9_fp_equ(t0, t1) != 1) {
 		error_print();
 		return 0;
@@ -1789,10 +1886,12 @@ void sm9_twist_point_add_full(SM9_TWIST_POINT *R, const SM9_TWIST_POINT *P, cons
 	sm9_fp2_sub(T1, T1, T2);
 
 	if (sm9_fp2_is_zero(T1) && sm9_fp2_is_zero(T3)) {
-		return sm9_twist_point_dbl(R, P);
+		sm9_twist_point_dbl(R, P);
+		return;
 	}
 	if (sm9_fp2_is_zero(T1) && sm9_fp2_is_zero(T6)) {
-		return sm9_twist_point_set_infinity(R);
+		sm9_twist_point_set_infinity(R);
+		return;
 	}
 
 	sm9_fp2_sqr(T6, T1);
@@ -2024,7 +2123,7 @@ void sm9_final_exponent(sm9_fp12_t r, const sm9_fp12_t f)
 }
 
 void sm9_pairing(sm9_fp12_t r, const SM9_TWIST_POINT *Q, const SM9_POINT *P) {
-	const char *abits = "00100000000000000000000000000000000000010000101011101100100111110";
+	const char *abits = "00100000000000000000000000000000000000010000101100020200101000020";
 
 	SM9_TWIST_POINT _T, *T = &_T;
 	SM9_TWIST_POINT _Q1, *Q1 = &_Q1;
@@ -2040,9 +2139,8 @@ void sm9_pairing(sm9_fp12_t r, const SM9_TWIST_POINT *Q, const SM9_POINT *P) {
 
 	sm9_fp12_set_one(f_num);
 	sm9_fp12_set_one(f_den);
-
+	
 	for (i = 0; i < strlen(abits); i++) {
-
 		sm9_fp12_sqr(f_num, f_num);
 		sm9_fp12_sqr(f_den, f_den);
 		sm9_eval_g_tangent(g_num, g_den, T, P);
@@ -2056,6 +2154,12 @@ void sm9_pairing(sm9_fp12_t r, const SM9_TWIST_POINT *Q, const SM9_POINT *P) {
 			sm9_fp12_mul(f_num, f_num, g_num);
 			sm9_fp12_mul(f_den, f_den, g_den);
 			sm9_twist_point_add_full(T, T, Q);
+		} else if (abits[i] == '2') {
+			sm9_twist_point_neg(Q1, Q);
+			sm9_eval_g_line(g_num, g_den, T, Q1, P);
+			sm9_fp12_mul(f_num, f_num, g_num);
+			sm9_fp12_mul(f_den, f_den, g_den);
+			sm9_twist_point_add_full(T, T, Q1);
 		}
 	}
 
@@ -2081,8 +2185,9 @@ void sm9_pairing(sm9_fp12_t r, const SM9_TWIST_POINT *Q, const SM9_POINT *P) {
 void sm9_fn_add(sm9_fn_t r, const sm9_fn_t a, const sm9_fn_t b)
 {
 	sm9_bn_add(r, a, b);
-	if (sm9_bn_cmp(r, SM9_N) >= 0)
-		return sm9_bn_sub(r, r, SM9_N);
+	if (sm9_bn_cmp(r, SM9_N) >= 0) {
+		sm9_bn_sub(r, r, SM9_N);
+	}
 }
 
 void sm9_fn_sub(sm9_fn_t r, const sm9_fn_t a, const sm9_fn_t b)

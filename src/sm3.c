@@ -1,5 +1,5 @@
 /*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -152,6 +152,7 @@ static uint32_t K[64] = {
 	*/
 };
 
+#ifndef SM3_AVX_BMI2
 void sm3_compress_blocks(uint32_t digest[8], const uint8_t *data, size_t blocks)
 {
 	uint32_t A;
@@ -293,7 +294,7 @@ void sm3_compress_blocks(uint32_t digest[8], const uint8_t *data, size_t blocks)
 		data += 64;
 	}
 }
-
+#endif
 
 void sm3_init(SM3_CTX *ctx)
 {
@@ -312,10 +313,9 @@ void sm3_update(SM3_CTX *ctx, const uint8_t *data, size_t data_len)
 {
 	size_t blocks;
 
-
 	ctx->num &= 0x3f;
 	if (ctx->num) {
-		unsigned int left = SM3_BLOCK_SIZE - ctx->num;
+		size_t left = SM3_BLOCK_SIZE - ctx->num;
 		if (data_len < left) {
 			memcpy(ctx->block + ctx->num, data, data_len);
 			ctx->num += data_len;
@@ -330,10 +330,12 @@ void sm3_update(SM3_CTX *ctx, const uint8_t *data, size_t data_len)
 	}
 
 	blocks = data_len / SM3_BLOCK_SIZE;
-	sm3_compress_blocks(ctx->digest, data, blocks);
-	ctx->nblocks += blocks;
-	data += SM3_BLOCK_SIZE * blocks;
-	data_len -= SM3_BLOCK_SIZE * blocks;
+	if (blocks) {
+		sm3_compress_blocks(ctx->digest, data, blocks);
+		ctx->nblocks += blocks;
+		data += SM3_BLOCK_SIZE * blocks;
+		data_len -= SM3_BLOCK_SIZE * blocks;
+	}
 
 	ctx->num = data_len;
 	if (data_len) {
@@ -362,7 +364,6 @@ void sm3_finish(SM3_CTX *ctx, uint8_t *digest)
 	for (i = 0; i < 8; i++) {
 		PUTU32(digest + i*4, ctx->digest[i]);
 	}
-	memset(ctx, 0, sizeof(SM3_CTX));
 }
 
 void sm3_digest(const uint8_t *msg, size_t msglen,
@@ -372,4 +373,5 @@ void sm3_digest(const uint8_t *msg, size_t msglen,
 	sm3_init(&ctx);
 	sm3_update(&ctx, msg, msglen);
 	sm3_finish(&ctx, dgst);
+	memset(&ctx, 0, sizeof(ctx));
 }

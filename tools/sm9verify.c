@@ -31,9 +31,9 @@ int sm9verify_main(int argc, char **argv)
 	SM9_SIGN_MASTER_KEY mpk;
 	SM9_SIGN_CTX ctx;
 	uint8_t buf[4096];
-	ssize_t len;
+	size_t len;
 	uint8_t sig[SM9_SIGNATURE_SIZE];
-	ssize_t siglen;
+	size_t siglen;
 
 	argc--;
 	argv++;
@@ -50,14 +50,14 @@ int sm9verify_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				error_print();
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-pubmaster")) {
 			if (--argc < 1) goto bad;
 			mpkfile = *(++argv);
-			if (!(mpkfp = fopen(mpkfile, "r"))) {
+			if (!(mpkfp = fopen(mpkfile, "rb"))) {
 				error_print();
 				goto end;
 			}
@@ -67,7 +67,7 @@ int sm9verify_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-sig")) {
 			if (--argc < 1) goto bad;
 			sigfile = *(++argv);
-			if (!(sigfp = fopen(sigfile, "r"))) {
+			if (!(sigfp = fopen(sigfile, "rb"))) {
 				error_print();
 				goto end;
 			}

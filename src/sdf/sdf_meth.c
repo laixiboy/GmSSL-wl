@@ -11,13 +11,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dlfcn.h>
+#include <gmssl/dylib.h>
 #include "sdf_int.h"
 
 #define SDFerr(a,b)
 
 #define SDF_METHOD_BIND_FUNCTION_EX(func,name) \
-	sdf->func = (SDF_##func##_FuncPtr)dlsym(sdf->dso, "SDF_"#name)
+	sdf->func = (SDF_##func##_FuncPtr)dylib_get_function(sdf->dso, "SDF_"#name)
 
 #define SDF_METHOD_BIND_FUNCTION(func) \
 	SDF_METHOD_BIND_FUNCTION_EX(func,func)
@@ -33,9 +33,8 @@ SDF_METHOD *SDF_METHOD_load_library(const char *so_path)
 	}
 	memset(sdf, 0, sizeof(*sdf));
 
-	if (!(sdf->dso = dlopen(so_path, RTLD_LAZY))) {
-		fprintf(stderr, "%s %d: %s\n", __FILE__, __LINE__, dlerror());
-		SDFerr(SDF_F_SDF_METHOD_LOAD_LIBRARY, SDF_R_DSO_LOAD_FAILURE);
+	if (!(sdf->dso = dylib_load_library(so_path))) {
+		fprintf(stderr, "%s %d: %s\n", __FILE__, __LINE__, dylib_error_str());
 		goto end;
 	}
 
@@ -98,7 +97,7 @@ end:
 
 void SDF_METHOD_free(SDF_METHOD *meth)
 {
-	if (meth) free(meth->dso);
+	if (meth) dylib_close_library(meth->dso);
 	free(meth);
 }
 

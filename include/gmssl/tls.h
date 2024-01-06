@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -19,6 +19,7 @@
 #include <gmssl/sm4.h>
 #include <gmssl/digest.h>
 #include <gmssl/block_cipher.h>
+#include <gmssl/socket.h>
 
 
 #ifdef __cplusplus
@@ -451,11 +452,9 @@ int tls_record_set_data(uint8_t *record, const uint8_t *data, size_t datalen);
 int tls_record_print(FILE *fp, const uint8_t *record,  size_t recordlen, int format, int indent);
 int tlcp_record_print(FILE *fp, const uint8_t *record,  size_t recordlen, int format, int indent);
 
-
-int tls_record_send(const uint8_t *record, size_t recordlen, int sock);
-int tls_record_recv(uint8_t *record, size_t *recordlen, int sock);
-int tls12_record_recv(uint8_t *record, size_t *recordlen, int sock);
-
+int tls_record_send(const uint8_t *record, size_t recordlen, tls_socket_t sock);
+int tls_record_recv(uint8_t *record, size_t *recordlen, tls_socket_t sock);
+int tls12_record_recv(uint8_t *record, size_t *recordlen, tls_socket_t sock);
 
 
 // Handshake
@@ -741,8 +740,7 @@ typedef struct {
 	int is_client;
 	int cipher_suites[TLS_MAX_CIPHER_SUITES_COUNT];
 	size_t cipher_suites_cnt;
-
-	int sock;
+	tls_socket_t sock;
 
 	uint8_t enced_record[TLS_MAX_RECORD_SIZE];
 	size_t enced_record_len;
@@ -792,7 +790,7 @@ typedef struct {
 
 
 int tls_init(TLS_CONNECT *conn, const TLS_CTX *ctx);
-int tls_set_socket(TLS_CONNECT *conn, int sock);
+int tls_set_socket(TLS_CONNECT *conn, tls_socket_t sock);
 int tls_do_handshake(TLS_CONNECT *conn);
 int tls_send(TLS_CONNECT *conn, const uint8_t *in, size_t inlen, size_t *sentlen);
 int tls_recv(TLS_CONNECT *conn, uint8_t *out, size_t outlen, size_t *recvlen);
@@ -855,9 +853,6 @@ int tls13_gcm_decrypt(const BLOCK_CIPHER_KEY *key, const uint8_t iv[12],
 	const uint8_t seq_num[8], const uint8_t *in, size_t inlen,
 	int *record_type, uint8_t *out, size_t *outlen);
 
-
-
-//#define TLS_DEBUG
 
 #ifdef TLS_DEBUG
 #	define tls_trace(s) fprintf(stderr,(s))

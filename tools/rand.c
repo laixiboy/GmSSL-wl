@@ -17,7 +17,7 @@
 #include <gmssl/rand.h>
 
 
-static const char *options = "[-hex] [-rdrand] -outlen num [-out file]";
+static const char *options = "[-hex] [-rdrand|-rdseed] -outlen num [-out file]";
 
 int rand_main(int argc, char **argv)
 {
@@ -25,11 +25,11 @@ int rand_main(int argc, char **argv)
 	char *prog = argv[0];
 	int hex = 0;
 	int rdrand = 0;
+	int rdseed = 0;
 	int outlen = 0;
 	char *outfile = NULL;
 	FILE *outfp = stdout;
 	uint8_t buf[2048];
-	int i;
 
 	argc--;
 	argv++;
@@ -48,6 +48,8 @@ int rand_main(int argc, char **argv)
 			hex = 1;
 		} else if (!strcmp(*argv, "-rdrand")) {
 			rdrand = 1;
+		} else if (!strcmp(*argv, "-rdseed")) {
+			rdseed = 1;
 		} else if (!strcmp(*argv, "-outlen")) {
 			if (--argc < 1) goto bad;
 			outlen = atoi(*(++argv));
@@ -58,7 +60,7 @@ int rand_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, outfile, strerror(errno));
 				goto end;
 			}
@@ -79,16 +81,27 @@ bad:
 		goto end;
 	}
 
-	while (outlen) {
+	while (outlen > 0) {
 		size_t len = outlen < sizeof(buf) ? outlen : sizeof(buf);
 
 		if (rdrand) {
-/*
+#ifdef INTEL_RDRAND
 			if (rdrand_bytes(buf, len) != 1) {
 				fprintf(stderr, "%s: inner error\n", prog);
 				goto end;
 			}
-*/
+#else
+			fprintf(stderr, "%s: `-rdrand` is not supported on your platform\n", prog);
+#endif
+		} else if (rdseed) {
+#ifdef INTEL_RDSEED
+			if (rdseed_bytes(buf, len) != 1) {
+				fprintf(stderr, "%s: inner error\n", prog);
+				goto end;
+			}
+#else
+			fprintf(stderr, "%s: `-rdseed` is not supported on your platform\n", prog);
+#endif
 		} else {
 			if (rand_bytes(buf, len) != 1) {
 				fprintf(stderr, "%s: inner error\n", prog);
@@ -107,7 +120,7 @@ bad:
 				goto end;
 			}
 		}
-		outlen -= len;
+		outlen -= (int)len;
 	}
 	if (hex) {
 		fprintf(outfp, "\n");

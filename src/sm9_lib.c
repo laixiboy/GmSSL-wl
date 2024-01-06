@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -20,6 +20,12 @@
 #include <gmssl/error.h>
 
 
+extern const sm9_bn_t SM9_ZERO;
+extern const sm9_bn_t SM9_N;
+extern const SM9_POINT *SM9_P1;
+extern const SM9_TWIST_POINT *SM9_P2;
+
+
 int sm9_signature_to_der(const SM9_SIGNATURE *sig, uint8_t **out, size_t *outlen)
 {
 	uint8_t hbuf[32];
@@ -37,7 +43,6 @@ int sm9_signature_to_der(const SM9_SIGNATURE *sig, uint8_t **out, size_t *outlen
 		error_print();
 		return -1;
 	}
-
 	return 1;
 }
 
@@ -109,7 +114,6 @@ int sm9_sign_finish(SM9_SIGN_CTX *ctx, const SM9_SIGN_KEY *key, uint8_t *sig, si
 		error_print();
 		return -1;
 	}
-
 	return 1;
 }
 
@@ -212,9 +216,9 @@ int sm9_do_sign(const SM9_SIGN_KEY *key, const SM3_CTX *sm3_ctx, SM9_SIGNATURE *
 }
 
 // 主密钥
-#define hex_ks		"000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
+//#define hex_ks		"000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
 // 签名私钥
-#define hex_ds		"A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3"
+//#define hex_ds		"A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3"
 
 void zmn_sm9_random(char* IDA_str,/* 输入：身份标识，十六进制字符，最多100个字符 */
 		size_t IDA_str_len, /* 输入：身份标示的hex字符个数 */
@@ -984,6 +988,7 @@ int sm9_do_verify(const SM9_SIGN_MASTER_KEY *mpk, const char *id, size_t idlen,
 
 	sm9_print_bn("h2:",h2);// test only
 	sm9_print_bn("sig-h:",sig->h);// test only
+
 	if (sm9_fn_equ(h2, sig->h) != 1) {
 		return 0;
 	}
@@ -1081,7 +1086,7 @@ int sm9_do_encrypt(const SM9_ENC_MASTER_KEY *mpk, const char *id, size_t idlen,
 	SM9_POINT *C1, uint8_t *c2, uint8_t c3[SM3_HMAC_SIZE])
 {
 	SM3_HMAC_CTX hmac_ctx;
-	uint8_t K[inlen + 32];
+	uint8_t K[SM9_MAX_PLAINTEXT_SIZE + 32];
 
 	if (sm9_kem_encrypt(mpk, id, idlen, sizeof(K), K, C1) != 1) {
 		error_print();
@@ -1102,8 +1107,13 @@ int sm9_do_decrypt(const SM9_ENC_KEY *key, const char *id, size_t idlen,
 	uint8_t *out)
 {
 	SM3_HMAC_CTX hmac_ctx;
-	uint8_t k[c2len + SM3_HMAC_SIZE];
+	uint8_t k[SM9_MAX_PLAINTEXT_SIZE + SM3_HMAC_SIZE];
 	uint8_t mac[SM3_HMAC_SIZE];
+
+	if (c2len > SM9_MAX_PLAINTEXT_SIZE) {
+		error_print();
+		return -1;
+	}
 
 	if (sm9_kem_decrypt(key, id, idlen, C1, sizeof(k), k) != 1) {
 		error_print();
@@ -1209,8 +1219,13 @@ int sm9_encrypt(const SM9_ENC_MASTER_KEY *mpk, const char *id, size_t idlen,
 	const uint8_t *in, size_t inlen, uint8_t *out, size_t *outlen)
 {
 	SM9_POINT C1;
-	uint8_t c2[inlen];
+	uint8_t c2[SM9_MAX_PLAINTEXT_SIZE];
 	uint8_t c3[SM3_HMAC_SIZE];
+
+	if (inlen > SM9_MAX_PLAINTEXT_SIZE) {
+		error_print();
+		return -1;
+	}
 
 	if (sm9_do_encrypt(mpk, id, idlen, in, inlen, &C1, c2, c3) != 1) {
 		error_print();

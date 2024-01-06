@@ -44,7 +44,7 @@ void zuc_eea_encrypt(const ZUC_UINT32 *in, ZUC_UINT32 *out, size_t nbits,
 	}
 
 	if (nbits % 32 != 0) {
-		out[nwords - 1] |= (0xffffffff << (32 - (nbits%32)));
+		out[nwords - 1] &= (0xffffffff << (32 - (nbits%32)));
 	}
 }
 
@@ -131,7 +131,6 @@ int zuc_encrypt_update(ZUC_CTX *ctx, const uint8_t *in, size_t inlen, uint8_t *o
 
 int zuc_encrypt_finish(ZUC_CTX *ctx, uint8_t *out, size_t *outlen)
 {
-	size_t left;
 	if (ctx->block_nbytes >= ZUC_BLOCK_SIZE) {
 		error_print();
 		return -1;

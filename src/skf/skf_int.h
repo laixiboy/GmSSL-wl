@@ -11,8 +11,10 @@
 #ifndef SKFUTIL_SKF_INT_H
 #define SKFUTIL_SKF_INT_H
 
+#include <gmssl/dylib.h>
 #include "../sgd.h"
 #include "skf.h"
+
 
 
 typedef ULONG (DEVAPI *SKF_WaitForDevEvent_FuncPtr)(
@@ -472,7 +474,8 @@ typedef ULONG (DEVAPI *SKF_CloseHandle_FuncPtr)(
 
 typedef struct skf_method_st {
 	char *name;
-	void *dso;
+	dylib_handle_t dso;
+
 	SKF_WaitForDevEvent_FuncPtr WaitForDevEvent;
 	SKF_CancelWaitForDevEvent_FuncPtr CancelWaitForDevEvent;
 	SKF_EnumDev_FuncPtr EnumDev;

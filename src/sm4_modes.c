@@ -101,6 +101,7 @@ static void ctr_incr(uint8_t a[16])
 	}
 }
 
+#ifndef SM4_AESNI_AVX
 void sm4_ctr_encrypt(const SM4_KEY *key, uint8_t ctr[16], const uint8_t *in, size_t inlen, uint8_t *out)
 {
 	uint8_t block[16];
@@ -116,6 +117,7 @@ void sm4_ctr_encrypt(const SM4_KEY *key, uint8_t ctr[16], const uint8_t *in, siz
 		inlen -= len;
 	}
 }
+#endif
 
 int sm4_gcm_encrypt(const SM4_KEY *key, const uint8_t *iv, size_t ivlen,
 	const uint8_t *aad, size_t aadlen, const uint8_t *in, size_t inlen,
@@ -259,9 +261,6 @@ int sm4_cbc_encrypt_update(SM4_CBC_CTX *ctx,
 
 int sm4_cbc_encrypt_finish(SM4_CBC_CTX *ctx, uint8_t *out, size_t *outlen)
 {
-	size_t left;
-	size_t i;
-
 	if (ctx->block_nbytes >= SM4_BLOCK_SIZE) {
 		error_print();
 		return -1;
@@ -391,7 +390,6 @@ int sm4_ctr_encrypt_update(SM4_CTR_CTX *ctx,
 
 int sm4_ctr_encrypt_finish(SM4_CTR_CTX *ctx, uint8_t *out, size_t *outlen)
 {
-	size_t left;
 	if (ctx->block_nbytes >= SM4_BLOCK_SIZE) {
 		error_print();
 		return -1;

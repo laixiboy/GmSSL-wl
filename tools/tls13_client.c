@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -12,13 +12,6 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-
-#include <unistd.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <gmssl/tls.h>
 #include <gmssl/error.h>
 
@@ -46,13 +39,12 @@ int tls13_client_main(int argc, char *argv[])
 	char *pass = NULL;
 	struct hostent *hp;
 	struct sockaddr_in server;
-	int sock;
+	tls_socket_t sock;
 	TLS_CTX ctx;
 	TLS_CONNECT conn;
 	char buf[1024] = {0};
 	size_t len = sizeof(buf);
 	char send_buf[1024] = {0};
-	size_t send_len;
 
 	argc--;
 	argv++;
@@ -97,8 +89,13 @@ bad:
 		fprintf(stderr, "%s: '-in' option required\n", prog);
 		return -1;
 	}
+
+	if (tls_socket_lib_init() != 1) {
+		error_print();
+		return -1;
+	}
 	if (!(hp = gethostbyname(host))) {
-		herror("tls13_client: '-host' invalid");
+		//herror("tls13_client: '-host' invalid");			
 		goto end;
 	}
 
@@ -109,13 +106,12 @@ bad:
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
 
-
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		fprintf(stderr, "%s: open socket error : %s\n", prog, strerror(errno));
+	if (tls_socket_create(&sock, AF_INET, SOCK_STREAM, 0) != 1) {
+		fprintf(stderr, "%s: socket create error\n", prog);
 		goto end;
 	}
-	if (connect(sock, (struct sockaddr *)&server , sizeof(server)) < 0) {
-		fprintf(stderr, "%s: connect error : %s\n", prog, strerror(errno));
+	if (tls_socket_connect(sock, &server) != 1) {
+		fprintf(stderr, "%s: socket connect error\n", prog);
 		goto end;
 	}
 
@@ -147,11 +143,29 @@ bad:
 		fd_set fds;
 		size_t sentlen;
 
+		if (!fgets(send_buf, sizeof(send_buf), stdin)) {
+			if (feof(stdin)) {
+				tls_shutdown(&conn);
+				goto end;
+			} else {
+				continue;
+			}
+		}
+		if (tls13_send(&conn, (uint8_t *)send_buf, strlen(send_buf), &sentlen) != 1) {
+			fprintf(stderr, "%s: send error\n", prog);
+			goto end;
+		}
+
+
 		FD_ZERO(&fds);
 		FD_SET(conn.sock, &fds);
-		FD_SET(STDIN_FILENO, &fds);
+#ifdef WIN32
+#else
+		FD_SET(fileno(stdin), &fds);
+#endif
 
-		if (select(conn.sock + 1, &fds, NULL, NULL, NULL) < 0) {
+		if (select((int)(conn.sock + 1), // In WinSock2, select() ignore the this arg
+			&fds, NULL, NULL, NULL) < 0) {
 			fprintf(stderr, "%s: select failed\n", prog);
 			goto end;
 		}
@@ -172,7 +186,9 @@ bad:
 			}
 
 		}
-		if (FD_ISSET(STDIN_FILENO, &fds)) {
+#ifdef WIN32
+#else
+		if (FD_ISSET(fileno(stdin), &fds)) {
 			memset(send_buf, 0, sizeof(send_buf));
 
 			if (!fgets(send_buf, sizeof(send_buf), stdin)) {
@@ -188,10 +204,11 @@ bad:
 				goto end;
 			}
 		}
+#endif
 	}
 
 end:
-	close(sock);
+	tls_socket_close(sock);
 	tls_ctx_cleanup(&ctx);
 	tls_cleanup(&conn);
 	return 0;

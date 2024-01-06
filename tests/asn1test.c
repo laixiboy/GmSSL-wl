@@ -1,5 +1,5 @@
-/*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+﻿/*
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <assert.h>
 #include <gmssl/asn1.h>
 #include <gmssl/error.h>
@@ -80,7 +81,8 @@ static int test_asn1_length(void)
 		344,
 		65537,
 		1<<23,
-		(size_t)1<<31,
+		INT_MAX, // INT_MAX = 2^31 - 1
+		//(size_t)1<<31, // default int value of (1<<31) is -2^31, 2^31 is larger than the INT_MAX limit
 	};
 	size_t length;
 	uint8_t buf[256];
@@ -172,7 +174,6 @@ static int test_asn1_int(void)
 	const uint8_t *cp = buf;
 	size_t len = 0;
 	size_t i;
-	int rv;
 
 	format_print(stderr, 0, 0, "%s\n", asn1_tag_name(ASN1_TAG_INTEGER));
 	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
@@ -371,7 +372,7 @@ static int test_asn1_printable_string(void)
 	char *tests[] = {
 		"hello",
 		"world",
-		"Just do it!",
+		"Just do it", // string "Just do it!" include invalid '!'
 	};
 	uint8_t buf[256];
 	uint8_t *p = buf;
@@ -399,6 +400,58 @@ static int test_asn1_printable_string(void)
 		format_string(stderr, 0, 4, "", (uint8_t *)d, dlen);
 	}
 	if (len != 0) {
+		error_print();
+		return -1;
+	}
+	printf("%s() ok\n", __FUNCTION__);
+	return 1;
+}
+
+static int test_asn1_printable_string_check(void)
+{
+	char *printable_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 '()+,-./:=?";
+	if (asn1_string_is_printable_string(printable_str, strlen(printable_str)) != 1) {
+		error_print();
+		return -1;
+	}
+
+	if (asn1_string_is_printable_string("a*b", 3) == 1) {
+		error_print();
+		return -1;
+	}
+
+	printf("%s() ok\n", __FUNCTION__);
+	return 1;
+}
+
+static int test_asn1_printable_string_case_ignore_match(void)
+{
+	if (asn1_printable_string_case_ignore_match("HELLO", 5, "WORLD", 5) == 1) {
+		error_print();
+		return -1;
+	}
+
+	if (asn1_printable_string_case_ignore_match("HELLO", 5, "HELLO", 5) != 1) {
+		error_print();
+		return -1;
+	}
+	if (asn1_printable_string_case_ignore_match("HELLO", 5, "hello", 5) != 1) {
+		error_print();
+		return -1;
+	}
+	if (asn1_printable_string_case_ignore_match("  HELLO", 7, "hello", 5) != 1) {
+		error_print();
+		return -1;
+	}
+	if (asn1_printable_string_case_ignore_match("  HELLO", 7, "hello   ", 8) != 1) {
+		error_print();
+		return -1;
+	}
+	if (asn1_printable_string_case_ignore_match(" A2b ", 5, "  a2B  ", 7) != 1) {
+		error_print();
+		return -1;
+	}
+	if (asn1_printable_string_case_ignore_match("     ", 5, "       ", 7) != 1) {
 		error_print();
 		return -1;
 	}
@@ -498,6 +551,90 @@ static int test_time(void)
 	return 1;
 }
 
+static int test_asn1_time(void)
+{
+	time_t tests[] = {
+		0,
+		31*86400,
+		(31+28)*86400,
+	 };
+	char *utc_time[] = {
+		"700101000000Z",
+		"700201000000Z",
+		"700301000000Z",
+	};
+	char *gen_time[] = {
+		"19700101000000Z",
+		"19700201000000Z",
+		"19700301000000Z",
+	};
+	time_t cur = time(NULL);
+	time_t ts;
+	char str[16] = {0};
+	int i;
+
+	if (asn1_time_to_str(0, cur, str) != 1
+		|| asn1_time_from_str(0, &ts, str) != 1
+		|| ts != cur) {
+		error_print();
+		return -1;
+	}
+
+	if (asn1_time_to_str(1, cur, str) != 1
+		|| asn1_time_from_str(1, &ts, str) != 1
+		|| ts != cur) {
+		error_print();
+		return -1;
+	}
+
+	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+		memset(str, 0, sizeof(str));
+		if (asn1_time_to_str(1, tests[i], str) != 1
+			|| strcmp(str, utc_time[i]) != 0) {
+			error_print();
+			return -1;
+		}
+
+		memset(str, 0, sizeof(str));
+		if (asn1_time_to_str(0, tests[i], str) != 1
+			|| strcmp(str, gen_time[i]) != 0) {
+			error_print();
+			return -1;
+		}
+	}
+
+	printf("%s() ok\n", __FUNCTION__);
+	return 1;
+}
+
+static int test_asn1_time_limits(void)
+{
+	char *tests[] = {
+		"20491231235959Z",
+		"20500101000000Z",
+		"99991231235959Z",
+	};
+	size_t i;
+
+	time_t tv[sizeof(tests)/sizeof(tests[0])];
+	char str[16] = {0};
+
+	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+		if (asn1_time_from_str(0, &tv[i], tests[i]) != 1) {
+			error_print();
+			return -1;
+		}
+		fprintf(stderr, "    %s: %lld\n", tests[i], (long long)tv[i]);
+	}
+	if (tv[0] + 1 != tv[1]) {
+		error_print();
+		return -1;
+	}
+
+	printf("%s() ok\n", __FUNCTION__);
+	return 1;
+}
+
 static int test_asn1_utc_time(void)
 {
 	time_t tests[] = {
@@ -577,6 +714,95 @@ static int test_asn1_generalized_time(void)
 	return 1;
 }
 
+static int test_asn1_from_der_null_args(void)
+{
+	uint8_t buf[100];
+	const uint8_t *cp = NULL;
+	size_t len = 100;
+
+	int val;
+	const char *str;
+	size_t dlen;
+	time_t t;
+	uint32_t nodes[32];
+	size_t nodes_cnt;
+
+	fprintf(stderr, "%s: *inlen = 0\n", __FUNCTION__);
+	cp = buf;
+	len = 0;
+	if (asn1_boolean_from_der(&val, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_int_from_der(&val, &cp, &len)  != 0) { error_print(); return -1; }
+	if (asn1_bits_from_der(&val, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_null_from_der(&cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_object_identifier_from_der(nodes, &nodes_cnt, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_utf8_string_from_der(&str, &dlen, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_printable_string_from_der(&str, &dlen, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_ia5_string_from_der(&str, &dlen, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_utc_time_from_der(&t, &cp, &len) != 0) { error_print(); return -1; }
+	if (asn1_generalized_time_from_der(&t, &cp, &len) != 0) { error_print(); return -1; }
+	fprintf(stderr, "%s: result = NULL\n", __FUNCTION__);
+
+	cp = NULL;
+	len = 100;
+	if (asn1_boolean_from_der(NULL, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_int_from_der(NULL, &cp, &len)  != -1) { error_print(); return -1; }
+	if (asn1_bits_from_der(NULL, &cp, &len) != -1) { error_print(); return -1; }
+	//if (asn1_null_from_der(&cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_object_identifier_from_der(NULL, &nodes_cnt, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_utf8_string_from_der(NULL, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_printable_string_from_der(NULL, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_ia5_string_from_der(NULL, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_utc_time_from_der(NULL, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_generalized_time_from_der(NULL, &cp, &len) != -1) { error_print(); return -1; }
+
+	fprintf(stderr, "%s: *inlen = 0\n", __FUNCTION__);
+	cp = buf;
+	len = 0;
+	if (asn1_boolean_from_der(&val, &cp, &len) != 0) { error_print(); return -1; }
+	fprintf(stderr, "%s: in = NULL\n", __FUNCTION__);
+	len = 100;
+	if (asn1_boolean_from_der(&val, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_int_from_der(&val, NULL, &len)  != -1) { error_print(); return -1; }
+	if (asn1_bits_from_der(&val, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_null_from_der(NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_object_identifier_from_der(nodes, &nodes_cnt, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_utf8_string_from_der(&str, &dlen, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_printable_string_from_der(&str, &dlen, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_ia5_string_from_der(&str, &dlen, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_utc_time_from_der(&t, NULL, &len) != -1) { error_print(); return -1; }
+	if (asn1_generalized_time_from_der(&t, NULL, &len) != -1) { error_print(); return -1; }
+
+	fprintf(stderr, "%s: inlen = NULL\n", __FUNCTION__);
+	cp = buf;
+	if (asn1_boolean_from_der(&val, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_int_from_der(&val, &cp, NULL)  != -1) { error_print(); return -1; }
+	if (asn1_bits_from_der(&val, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_null_from_der(&cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_object_identifier_from_der(nodes, &nodes_cnt, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_utf8_string_from_der(&str, &dlen, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_printable_string_from_der(&str, &dlen, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_ia5_string_from_der(&str, &dlen, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_utc_time_from_der(&t, &cp, NULL) != -1) { error_print(); return -1; }
+	if (asn1_generalized_time_from_der(&t, &cp, NULL) != -1) { error_print(); return -1; }
+
+	fprintf(stderr, "%s: *in = NULL\n", __FUNCTION__);
+	cp = NULL;
+	len = 100;
+	if (asn1_boolean_from_der(&val, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_int_from_der(&val, &cp, &len)  != -1) { error_print(); return -1; }
+	if (asn1_bits_from_der(&val, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_null_from_der(&cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_object_identifier_from_der(nodes, &nodes_cnt, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_utf8_string_from_der(&str, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_printable_string_from_der(&str, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_ia5_string_from_der(&str, &dlen, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_utc_time_from_der(&t, &cp, &len) != -1) { error_print(); return -1; }
+	if (asn1_generalized_time_from_der(&t, &cp, &len) != -1) { error_print(); return -1; }
+
+	printf("%s() ok\n", __FUNCTION__);
+	return 1;
+}
+
 int main(void)
 {
 	if (test_asn1_tag() != 1) goto err;
@@ -587,10 +813,14 @@ int main(void)
 	if (test_asn1_null() != 1) goto err;
 	if (test_asn1_object_identifier() != 1) goto err;
 	if (test_asn1_printable_string() != 1) goto err;
+	if (test_asn1_printable_string_case_ignore_match() != 1) goto err;
 	if (test_asn1_utf8_string() != 1) goto err;
 	if (test_asn1_ia5_string() != 1) goto err;
+	if (test_asn1_time() != 1) goto err;
+	if (test_asn1_time_limits() != 1) goto err;
 	if (test_asn1_utc_time() != 1) goto err;
 	if (test_asn1_generalized_time() != 1) goto err;
+	if (test_asn1_from_der_null_args() != 1) goto err;
 	printf("%s all tests passed\n", __FILE__);
 	return 0;
 err:

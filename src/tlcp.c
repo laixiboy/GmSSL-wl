@@ -1,5 +1,5 @@
-/*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+﻿/*
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -14,11 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <gmssl/rand.h>
 #include <gmssl/x509.h>
 #include <gmssl/error.h>
@@ -32,6 +27,16 @@
 
 static const int tlcp_ciphers[] = { TLS_cipher_ecc_sm4_cbc_sm3 };
 static const size_t tlcp_ciphers_count = sizeof(tlcp_ciphers)/sizeof(tlcp_ciphers[0]);
+
+void printbyte(uint8_t *ptr, int len, char *name) {
+  fprintf(stderr, "%s", name);
+  for (int i = 0; i < len; i++) {
+    if (i % 16 == 0)
+      fprintf(stderr, "\n");
+    fprintf(stderr, "0x%02X ", ptr[i]);
+  }
+  fprintf(stderr, "\n");
+}
 
 int tlcp_record_print(FILE *fp, const uint8_t *record,  size_t recordlen, int format, int indent)
 {
@@ -173,9 +178,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 
 	// 准备Finished Context（和ClientVerify）
 	sm3_init(&sm3_ctx);
-	if (conn->client_certs_len)
-		sm2_sign_init(&sign_ctx, &conn->sign_key, SM2_DEFAULT_ID, SM2_DEFAULT_ID_LENGTH);
-
 
 	// send ClientHello
 	tls_random_generate(client_random);
@@ -192,8 +194,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// recv ServerHello
 	tls_trace("recv ServerHello\n");
@@ -234,8 +234,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 	memcpy(conn->session_id, session_id, session_id_len);
 	conn->cipher_suite = cipher_suite;
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// recv ServerCertificate
 	tls_trace("recv ServerCertificate\n");
@@ -254,17 +252,15 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// verify ServerCertificate
 	if (conn->ca_certs_len) {
 		// 只有提供了CA证书才验证服务器证书链
 		// FIXME: 逻辑需要再检查
-		if (x509_certs_verify_tlcp(conn->server_certs, conn->server_certs_len,
+		if (x509_certs_verify_tlcp(conn->server_certs, conn->server_certs_len, X509_cert_chain_server,
 			conn->ca_certs, conn->ca_certs_len, depth, &verify_result) != 1) {
 			error_print();
-			tls_send_alert(conn, alert);
+			tls_send_alert(conn, TLS_alert_bad_certificate);
 			goto end;
 		}
 	}
@@ -284,8 +280,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// verify ServerKeyExchange
 	if (x509_certs_get_cert_by_index(conn->server_certs, conn->server_certs_len, 0, &cp, &len) != 1
@@ -297,7 +291,7 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	p = server_enc_cert_lenbuf; len = 0;
-	tls_uint24_to_bytes(server_enc_cert_len, &p, &len);
+	tls_uint24_to_bytes((uint24_t)server_enc_cert_len, &p, &len);
 	if (sm2_verify_init(&verify_ctx, &server_sign_key, SM2_DEFAULT_ID, SM2_DEFAULT_ID_LENGTH) != 1
 		|| sm2_verify_update(&verify_ctx, client_random, 32) != 1
 		|| sm2_verify_update(&verify_ctx, server_random, 32) != 1
@@ -348,7 +342,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 			goto end;
 		}
 		sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 		// recv ServerHelloDone
 		if (tls_record_recv(record, &recordlen, conn->sock) != 1
@@ -371,8 +364,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// send ClientCertificate
 	if (conn->client_certs_len) {
@@ -388,7 +379,6 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 			goto end;
 		}
 		sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 	}
 
 	// generate MASTER_SECRET
@@ -433,15 +423,24 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (conn->client_certs_len)
-		sm2_sign_update(&sign_ctx, record + 5, recordlen - 5);
 
 	// send CertificateVerify
 	if (conn->client_certs_len) {
 		tls_trace("send CertificateVerify\n");
+
+		SM3_CTX cert_verify_sm3_ctx = sm3_ctx;
+		uint8_t cert_verify_hash[SM3_DIGEST_SIZE];
 		uint8_t sigbuf[SM2_MAX_SIGNATURE_SIZE];
-		if (sm2_sign_finish(&sign_ctx, sigbuf, &siglen) != 1
-			|| tls_record_set_handshake_certificate_verify(record, &recordlen, sigbuf, siglen) != 1) {
+
+		sm3_finish(&cert_verify_sm3_ctx, cert_verify_hash);
+		if (sm2_sign_init(&sign_ctx, &conn->sign_key, SM2_DEFAULT_ID, SM2_DEFAULT_ID_LENGTH) != 1
+			|| sm2_sign_update(&sign_ctx, cert_verify_hash, SM3_DIGEST_SIZE) != 1
+			|| sm2_sign_finish(&sign_ctx, sigbuf, &siglen) != 1) {
+			error_print();
+			tls_send_alert(conn, TLS_alert_internal_error);
+			goto end;
+		}
+		if (tls_record_set_handshake_certificate_verify(record, &recordlen, sigbuf, siglen) != 1) {
 			error_print();
 			tls_send_alert(conn, TLS_alert_internal_error);
 			goto end;
@@ -568,7 +567,7 @@ int tlcp_do_connect(TLS_CONNECT *conn)
 end:
 	gmssl_secure_clear(&sign_ctx, sizeof(sign_ctx));
 	gmssl_secure_clear(pre_master_secret, sizeof(pre_master_secret));
-	return 1;
+	return ret;
 }
 
 int tlcp_do_accept(TLS_CONNECT *conn)
@@ -603,8 +602,8 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 	size_t siglen;
 
 	// ClientCertificate, CertificateVerify
-	TLS_CLIENT_VERIFY_CTX client_verify_ctx;
 	SM2_KEY client_sign_key;
+	SM2_SIGN_CTX verify_ctx;
 	const uint8_t *sig;
 	const int verify_depth = 5;
 	int verify_result;
@@ -634,8 +633,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 
 	// 初始化Finished和客户端验证环境
 	sm3_init(&sm3_ctx);
-	if (client_verify)
-		tls_client_verify_init(&client_verify_ctx);
 
 
 	// recv ClientHello
@@ -679,9 +676,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
-
 
 	// send ServerHello
 	tls_trace("send ServerHello\n");
@@ -699,8 +693,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 
 	// send ServerCertificate
 	tls_trace("send ServerCertificate\n");
@@ -716,8 +708,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 
 	// send ServerKeyExchange
 	tls_trace("send ServerKeyExchange\n");
@@ -727,7 +717,7 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	p = server_enc_cert_lenbuf; len = 0;
-	tls_uint24_to_bytes(server_enc_cert_len, &p, &len);
+	tls_uint24_to_bytes((uint24_t)server_enc_cert_len, &p, &len);
 	if (sm2_sign_init(&sign_ctx, &conn->sign_key, SM2_DEFAULT_ID, SM2_DEFAULT_ID_LENGTH) != 1
 		|| sm2_sign_update(&sign_ctx, client_random, 32) != 1
 		|| sm2_sign_update(&sign_ctx, server_random, 32) != 1
@@ -749,8 +739,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 
 	// send CertificateRequest
 	if (client_verify) {
@@ -776,7 +764,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 			goto end;
 		}
 		sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 	}
 
 	// send ServerHelloDone
@@ -788,8 +775,6 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 
 	// recv ClientCertificate
 	if (conn->ca_certs_len) {
@@ -806,14 +791,13 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 			tls_send_alert(conn, TLS_alert_unexpected_message);
 			goto end;
 		}
-		if (x509_certs_verify(conn->client_certs, conn->client_certs_len,
+		if (x509_certs_verify(conn->client_certs, conn->client_certs_len, X509_cert_chain_client,
 			conn->ca_certs, conn->ca_certs_len, verify_depth, &verify_result) != 1) {
 			error_print();
 			tls_send_alert(conn, TLS_alert_bad_certificate);
 			goto end;
 		}
 		sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 	}
 
 	// ClientKeyExchange
@@ -842,12 +826,13 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 		goto end;
 	}
 	sm3_update(&sm3_ctx, record + 5, recordlen - 5);
-	if (client_verify)
-		tls_client_verify_update(&client_verify_ctx, record + 5, recordlen - 5);
 
 	// recv CertificateVerify
 	if (client_verify) {
 		tls_trace("recv CertificateVerify\n");
+		SM3_CTX cert_verify_sm3_ctx = sm3_ctx;
+		uint8_t cert_verify_hash[SM3_DIGEST_SIZE];
+
 		if (tls_record_recv(record, &recordlen, conn->sock) != 1
 			|| tls_record_protocol(record) != TLS_protocol_tlcp) {
 			tls_send_alert(conn, TLS_alert_unexpected_message);
@@ -866,7 +851,11 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 			tls_send_alert(conn, TLS_alert_bad_certificate);
 			goto end;
 		}
-		if (tls_client_verify_finish(&client_verify_ctx, sig, siglen, &client_sign_key) != 1) {
+
+		sm3_finish(&cert_verify_sm3_ctx, cert_verify_hash);
+		if (sm2_verify_init(&verify_ctx, &client_sign_key, SM2_DEFAULT_ID, SM2_DEFAULT_ID_LENGTH) != 1
+			|| sm2_verify_update(&verify_ctx, cert_verify_hash, SM3_DIGEST_SIZE) != 1
+			|| sm2_verify_finish(&verify_ctx, sig, siglen) != 1) {
 			error_print();
 			tls_send_alert(conn, TLS_alert_decrypt_error);
 			goto end;
@@ -1013,6 +1002,5 @@ int tlcp_do_accept(TLS_CONNECT *conn)
 end:
 	gmssl_secure_clear(&sign_ctx, sizeof(sign_ctx));
 	gmssl_secure_clear(pre_master_secret, sizeof(pre_master_secret));
-	if (client_verify) tls_client_verify_cleanup(&client_verify_ctx);
 	return ret;
 }

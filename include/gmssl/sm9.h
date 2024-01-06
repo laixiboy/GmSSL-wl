@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -81,18 +81,14 @@ SM9 Public API
 #define SM9_HEX_SEP '\n'
 
 typedef uint64_t sm9_bn_t[8];
-extern const sm9_bn_t SM9_ZERO;
-extern const sm9_bn_t SM9_ONE;
-extern const sm9_bn_t SM9_P;
-extern const sm9_bn_t SM9_N;
 
 #define sm9_bn_init(r)		sm9_bn_set_zero(r)
 #define sm9_bn_clean(r)		sm9_bn_set_zero(r)
-#define sm9_bn_set_zero(r)	sm9_bn_copy((r), SM9_ZERO)
-#define sm9_bn_set_one(r)	sm9_bn_copy((r), SM9_ONE)
-#define sm9_bn_is_zero(a)	(sm9_bn_cmp((a), SM9_ZERO) == 0)
-#define sm9_bn_is_one(a)	(sm9_bn_cmp((a), SM9_ONE) == 0)
 
+void sm9_bn_set_zero(sm9_bn_t r);
+void sm9_bn_set_one(sm9_bn_t r);
+int  sm9_bn_is_zero(const sm9_bn_t a);
+int  sm9_bn_is_one(const sm9_bn_t a);
 void sm9_bn_set_word(sm9_bn_t r, uint32_t a);
 void sm9_bn_copy(sm9_bn_t r, const sm9_bn_t a);
 int  sm9_bn_rand_range(sm9_bn_t r, const sm9_bn_t range);
@@ -104,7 +100,7 @@ void sm9_bn_to_bits(const sm9_bn_t a, char bits[256]);
 void sm9_bn_to_bytes(const sm9_bn_t a, uint8_t out[32]);
 void sm9_bn_from_bytes(sm9_bn_t r, const uint8_t in[32]);
 void sm9_bn_to_hex(const sm9_bn_t a, char hex[64]);
-int  sm9_bn_from_hex(sm9_bn_t r, const char hex[64]);
+int  sm9_bn_from_hex(sm9_bn_t r, const char* hex);
 int  sm9_bn_print(FILE *fp, int fmt, int ind, const char *label, const sm9_bn_t a);
 void sm9_print_bn(const char *prefix, const sm9_bn_t a); // 标准打印格式
 
@@ -353,7 +349,6 @@ typedef struct {
 	sm9_fp_t Y;
 	sm9_fp_t Z;
 } SM9_POINT;
-extern const SM9_POINT *SM9_P1;
 
 #define sm9_point_init(R)	sm9_point_set_infinity(R)
 #define sm9_point_clean(R)	sm9_point_set_infinity(R)
@@ -381,9 +376,6 @@ typedef struct {
 	sm9_fp2_t Y;
 	sm9_fp2_t Z;
 } SM9_TWIST_POINT;
-
-extern const SM9_TWIST_POINT *SM9_P2;
-extern const SM9_TWIST_POINT *SM9_Ppubs;
 
 #define sm9_twist_point_copy(R, P)	memcpy((R), (P), sizeof(SM9_TWIST_POINT))
 
@@ -526,6 +518,7 @@ typedef struct {
 int sm9_sign_init(SM9_SIGN_CTX *ctx);
 int sm9_sign_update(SM9_SIGN_CTX *ctx, const uint8_t *data, size_t datalen);
 int sm9_sign_finish(SM9_SIGN_CTX *ctx, const SM9_SIGN_KEY *key, uint8_t *sig, size_t *siglen);
+
 int zmn_sm9_sign_finish(SM9_SIGN_CTX *ctx, const SM9_SIGN_KEY *key, 
 	uint8_t *sig, size_t *siglen,
 	SM9_SIGNATURE* signature);
@@ -533,6 +526,7 @@ int sm9_verify_init(SM9_SIGN_CTX *ctx);
 int sm9_verify_update(SM9_SIGN_CTX *ctx, const uint8_t *data, size_t datalen);
 int sm9_verify_finish(SM9_SIGN_CTX *ctx, const uint8_t *sig, size_t siglen,
 	const SM9_SIGN_MASTER_KEY *mpk, const char *id, size_t idlen);
+	
 int zmn_sm9_verify_finish(SM9_SIGN_CTX *ctx, const uint8_t *sig, size_t siglen,
 	const SM9_SIGN_MASTER_KEY *mpk, const char *id, size_t idlen,
 	SM9_SIGNATURE* signature);
@@ -616,7 +610,7 @@ int sm9_do_decrypt(const SM9_ENC_KEY *key, const char *id, size_t idlen,
 int sm9_ciphertext_to_der(const SM9_POINT *C1, const uint8_t *c2, size_t c2len,
 	const uint8_t c3[SM3_HMAC_SIZE], uint8_t **out, size_t *outlen);
 int sm9_ciphertext_from_der(SM9_POINT *C1, const uint8_t **c2, size_t *c2len,
-	const uint8_t *c3[SM3_HMAC_SIZE], const uint8_t **in, size_t *inlen);
+	const uint8_t **c3, const uint8_t **in, size_t *inlen);
 int sm9_ciphertext_print(FILE *fp, int fmt, int ind, const char *label, const uint8_t *a, size_t alen);
 int sm9_encrypt(const SM9_ENC_MASTER_KEY *mpk, const char *id, size_t idlen,
 	const uint8_t *in, size_t inlen, uint8_t *out, size_t *outlen);

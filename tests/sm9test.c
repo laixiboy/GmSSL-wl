@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -38,13 +38,29 @@ static int sm9_bn_equ_hex(const sm9_bn_t a, const char *hex)
 #define hex_fp_inv 	"7d404b0027a93e3fa8f8bc7ee367a96814c42a3b69feb1845093406948a34753"
 
 int test_sm9_fp() {
+	const SM9_TWIST_POINT _P2 = {
+		{{0xAF82D65B, 0xF9B7213B, 0xD19C17AB, 0xEE265948, 0xD34EC120, 0xD2AAB97F, 0x92130B08, 0x37227552},
+		 {0xD8806141, 0x54806C11, 0x0F5E93C4, 0xF1DD2C19, 0xB441A01F, 0x597B6027, 0x78640C98, 0x85AEF3D0}},
+		{{0xC999A7C7, 0x6215BBA5, 0xA71A0811, 0x47EFBA98, 0x3D278FF2, 0x5F317015, 0x19BE3DA6, 0xA7CF28D5},
+		 {0x84EBEB96, 0x856DC76B, 0xA347C8BD, 0x0736A96F, 0x2CBEE6ED, 0x66BA0D26, 0x2E845C12, 0x17509B09}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *P2 = &_P2;
+	const SM9_TWIST_POINT _Ppubs = {
+		{{0x96EA5E32, 0x8F14D656, 0x386A92DD, 0x414D2177, 0x24A3B573, 0x6CE843ED, 0x152D1F78, 0x29DBA116},
+		 {0x1B94C408, 0x0AB1B679, 0x5E392CFB, 0x1CE0711C, 0x41B56501, 0xE48AFF4B, 0x3084F733, 0x9F64080B}},
+		{{0xB4E3216D, 0x0E75C05F, 0x5CDFF073, 0x1006E85F, 0xB7A46F74, 0x1A7CE027, 0xDDA532DA, 0x41E00A53},
+	         {0xD0EF1C25, 0xE89E1408, 0x1A77F335, 0xAD3E2FDB, 0x47E3A0CB, 0xB57329F4, 0xABEA0112, 0x69850938}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *Ppubs = &_Ppubs;
 	sm9_fp_t x;
 	sm9_fp_t y;
 	sm9_fp_t r;
 	int j = 1;
 
-	sm9_bn_copy(x, SM9_P2->X[1]);
-	sm9_bn_copy(y, SM9_Ppubs->Y[0]);
+	sm9_bn_copy(x, P2->X[1]);
+	sm9_bn_copy(y, Ppubs->Y[0]);
 
 	sm9_fp_t iv = {0x87654321, 0x0fedcba9, 0x9abcdef0, 0x12345678, 0x87654321, 0x0fedcba9, 0x9abcdef0, 0x12345678};
 	sm9_bn_from_hex(r, hex_iv); if (sm9_bn_cmp(r, iv) != 0) goto err; ++j;
@@ -119,6 +135,22 @@ err:
 #define hex_fp2_div2	"0ba84d8497422e09335d0693165f7376839b54b7d1a3e45ec2b6e3b5c275f5cb-af07946a8e30f24c1a9a8db2995b2b9bb4f126f1e0ca7b76a3c2ab66d67576a2"
 
 int test_sm9_fp2() {
+	const SM9_TWIST_POINT _P2 = {
+		{{0xAF82D65B, 0xF9B7213B, 0xD19C17AB, 0xEE265948, 0xD34EC120, 0xD2AAB97F, 0x92130B08, 0x37227552},
+		 {0xD8806141, 0x54806C11, 0x0F5E93C4, 0xF1DD2C19, 0xB441A01F, 0x597B6027, 0x78640C98, 0x85AEF3D0}},
+		{{0xC999A7C7, 0x6215BBA5, 0xA71A0811, 0x47EFBA98, 0x3D278FF2, 0x5F317015, 0x19BE3DA6, 0xA7CF28D5},
+		 {0x84EBEB96, 0x856DC76B, 0xA347C8BD, 0x0736A96F, 0x2CBEE6ED, 0x66BA0D26, 0x2E845C12, 0x17509B09}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *P2 = &_P2;
+	const SM9_TWIST_POINT _Ppubs = {
+		{{0x96EA5E32, 0x8F14D656, 0x386A92DD, 0x414D2177, 0x24A3B573, 0x6CE843ED, 0x152D1F78, 0x29DBA116},
+		 {0x1B94C408, 0x0AB1B679, 0x5E392CFB, 0x1CE0711C, 0x41B56501, 0xE48AFF4B, 0x3084F733, 0x9F64080B}},
+		{{0xB4E3216D, 0x0E75C05F, 0x5CDFF073, 0x1006E85F, 0xB7A46F74, 0x1A7CE027, 0xDDA532DA, 0x41E00A53},
+	         {0xD0EF1C25, 0xE89E1408, 0x1A77F335, 0xAD3E2FDB, 0x47E3A0CB, 0xB57329F4, 0xABEA0112, 0x69850938}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *Ppubs = &_Ppubs;
 	sm9_fp2_t x;
 	sm9_fp2_t y;
 	sm9_fp2_t r;
@@ -126,8 +158,8 @@ int test_sm9_fp2() {
 	sm9_fp_t k;
 	int j = 1;
 
-	sm9_fp2_copy(x, SM9_P2->Y);
-	sm9_fp2_copy(y, SM9_Ppubs->X);
+	sm9_fp2_copy(x, P2->Y);
+	sm9_fp2_copy(y, Ppubs->X);
 	sm9_bn_from_hex(k, hex_iv);
 
 	sm9_fp2_t iv2 = {{0xc9bb073c, 0xf1fdd299, 0xd14f49a9, 0xd632457d, 0x664a2b72, 0x6e492768, 0x4e243d80, 0xa3965402},
@@ -198,6 +230,14 @@ err:
 	"3a70e829b83dc311970bc8d3e3e652f88a1ecd49b4672aa18c1c613c9a97d86f"
 
 int test_sm9_fp4() {
+	const SM9_TWIST_POINT _Ppubs = {
+		{{0x96EA5E32, 0x8F14D656, 0x386A92DD, 0x414D2177, 0x24A3B573, 0x6CE843ED, 0x152D1F78, 0x29DBA116},
+		 {0x1B94C408, 0x0AB1B679, 0x5E392CFB, 0x1CE0711C, 0x41B56501, 0xE48AFF4B, 0x3084F733, 0x9F64080B}},
+		{{0xB4E3216D, 0x0E75C05F, 0x5CDFF073, 0x1006E85F, 0xB7A46F74, 0x1A7CE027, 0xDDA532DA, 0x41E00A53},
+	         {0xD0EF1C25, 0xE89E1408, 0x1A77F335, 0xAD3E2FDB, 0x47E3A0CB, 0xB57329F4, 0xABEA0112, 0x69850938}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *Ppubs = &_Ppubs;
 	sm9_fp4_t x;
 	sm9_fp4_t y;
 	sm9_fp4_t r;
@@ -211,7 +251,7 @@ int test_sm9_fp4() {
 	sm9_fp2_from_hex(y[0], hex_fp2_add);
 	sm9_fp2_from_hex(y[1], hex_fp2_tri);
 	sm9_bn_from_hex(k, hex_iv);
-	sm9_fp2_copy(q, SM9_Ppubs->X);
+	sm9_fp2_copy(q, Ppubs->X);
 
 	sm9_fp4_t iv4 = {{{0xc9bb073c, 0xf1fdd299, 0xd14f49a9, 0xd632457d, 0x664a2b72, 0x6e492768, 0x4e243d80, 0xa3965402},
 	                  {0x87654321, 0x0fedcba9, 0x9abcdef0, 0x12345678, 0x87654321, 0x0fedcba9, 0x9abcdef0, 0x12345678}},
@@ -491,7 +531,33 @@ err:
 	"934FDDA6D3AB48C8571CE2354B79742AA498CB8CDDE6BD1FA5946345A1A652F6"
 
 
-int test_sm9_pairing() {
+int test_sm9_pairing()
+{
+	const SM9_POINT _P1 = {
+		{0x7c66dddd, 0xe8c4e481, 0x09dc3280, 0xe1e40869, 0x487d01d6, 0xf5ed0704, 0x62bf718f, 0x93de051d},
+		{0x0a3ea616, 0x0c464cd7, 0xfa602435, 0x1c1c00cb, 0x5c395bbc, 0x63106512, 0x4f21e607, 0x21fe8dda},
+		{1,0,0,0,0,0,0,0}
+	};
+	const SM9_POINT *P1 = &_P1;
+
+	const SM9_TWIST_POINT _P2 = {
+		{{0xAF82D65B, 0xF9B7213B, 0xD19C17AB, 0xEE265948, 0xD34EC120, 0xD2AAB97F, 0x92130B08, 0x37227552},
+		 {0xD8806141, 0x54806C11, 0x0F5E93C4, 0xF1DD2C19, 0xB441A01F, 0x597B6027, 0x78640C98, 0x85AEF3D0}},
+		{{0xC999A7C7, 0x6215BBA5, 0xA71A0811, 0x47EFBA98, 0x3D278FF2, 0x5F317015, 0x19BE3DA6, 0xA7CF28D5},
+		 {0x84EBEB96, 0x856DC76B, 0xA347C8BD, 0x0736A96F, 0x2CBEE6ED, 0x66BA0D26, 0x2E845C12, 0x17509B09}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *P2 = &_P2;
+
+	const SM9_TWIST_POINT _Ppubs = {
+		{{0x96EA5E32, 0x8F14D656, 0x386A92DD, 0x414D2177, 0x24A3B573, 0x6CE843ED, 0x152D1F78, 0x29DBA116},
+		 {0x1B94C408, 0x0AB1B679, 0x5E392CFB, 0x1CE0711C, 0x41B56501, 0xE48AFF4B, 0x3084F733, 0x9F64080B}},
+		{{0xB4E3216D, 0x0E75C05F, 0x5CDFF073, 0x1006E85F, 0xB7A46F74, 0x1A7CE027, 0xDDA532DA, 0x41E00A53},
+	         {0xD0EF1C25, 0xE89E1408, 0x1A77F335, 0xAD3E2FDB, 0x47E3A0CB, 0xB57329F4, 0xABEA0112, 0x69850938}},
+		{{1,0,0,0,0,0,0,0}, {0,0,0,0,0,0,0,0}},
+	};
+	const SM9_TWIST_POINT *Ppubs = &_Ppubs;
+
 	SM9_TWIST_POINT p;
 	SM9_POINT q;
 	sm9_fp12_t r;
@@ -499,13 +565,13 @@ int test_sm9_pairing() {
 	sm9_bn_t k;
 	int j = 1;
 
-	sm9_pairing(r, SM9_Ppubs, SM9_P1); sm9_fp12_from_hex(s, hex_pairing1); if (!sm9_fp12_equ(r, s)) goto err; ++j;
+	sm9_pairing(r, Ppubs, P1); sm9_fp12_from_hex(s, hex_pairing1); if (!sm9_fp12_equ(r, s)) goto err; ++j;
 
 	sm9_twist_point_from_hex(&p, hex_deB); sm9_point_from_hex(&q, hex_RA);
 	sm9_pairing(r, &p, &q); sm9_fp12_from_hex(s, hex_pairing2); if (!sm9_fp12_equ(r, s)) goto err; ++j;
 
 	sm9_bn_from_hex(k, rB); sm9_point_from_hex(&q, hex_Ppube);
-	sm9_pairing(r, SM9_P2, &q); sm9_fp12_pow(r, r, k); sm9_fp12_from_hex(s, hex_pairing3); if (!sm9_fp12_equ(r, s)) goto err; ++j;
+	sm9_pairing(r, P2, &q); sm9_fp12_pow(r, r, k); sm9_fp12_from_hex(s, hex_pairing3); if (!sm9_fp12_equ(r, s)) goto err; ++j;
 
 	printf("%s() ok\n", __FUNCTION__);
 	return 1;
@@ -515,10 +581,8 @@ err:
 	return -1;
 }
 
-// 主密钥
-#define hex_ks		"000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
-// 签名私钥
-#define hex_ds		"A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3"
+#define hex_ks "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4"
+#define hex_ds "A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3"
 
 int test_sm9_sign() {
 	SM9_SIGN_CTX ctx;
@@ -532,6 +596,12 @@ int test_sm9_sign() {
 	uint8_t data[20] = {0x43, 0x68, 0x69, 0x6E, 0x65, 0x73, 0x65, 0x20, 0x49, 0x42, 0x53, 0x20, 0x73, 0x74, 0x61, 0x6E, 0x64, 0x61, 0x72, 0x64};
 	uint8_t IDA[5] = {0x41, 0x6C, 0x69, 0x63, 0x65};
 
+	sm9_fp4_t ppubs;
+	SM9_SIGNATURE signature;
+
+	char ppubs_str[260] = {'\0'};
+	char ds_str[130] = {'\0'};
+
 	sm9_bn_from_hex(mpk.ks, hex_ks); 
 	sm9_twist_point_mul_generator(&(mpk.Ppubs), mpk.ks);
 
@@ -542,7 +612,6 @@ int test_sm9_sign() {
 			"41e00a53dda532da1a7ce027b7a46f741006e85f5cdff0730e75c05fb4e3216d");
 
 	if (sm9_sign_master_key_extract_key(&mpk, (char *)IDA, sizeof(IDA), &key) < 0) goto err; ++j;
-
 	//测试用固定数据加载
 	//sm9_point_from_hex(&key.ds,"a5702f05cf1315305e2d6eb64b0deb923db1a0bcf0caff90523ac8754aa69820-78559a844411f9825c109f5ee3f52d720dd01785392a727bb1556952b2b013d3");
 
@@ -599,6 +668,9 @@ int test_sm9_sign() {
 
 	sm9_sign_init(&ctx);
 	sm9_sign_update(&ctx, data, sizeof(data));
+	
+	//if (sm9_sign_finish(&ctx, &key, sig, &siglen) < 0) goto err; ++j;
+
 	uint8_t* p_sig = sig;
 	if (sm9_sign_finish(&ctx, &key, p_sig, &siglen) < 0) goto err; ++j;
 
@@ -610,9 +682,6 @@ int test_sm9_sign() {
 	printf("%s\n",sig_der_str);
 
 	//测试生成和加载
-	sm9_fp4_t ppubs;
-	char ppubs_str[260] = {'\0'};
-	char ds_str[130] = {'\0'};
 	sm9_twist_point_get_xy(&mpk.Ppubs,ppubs[1],ppubs[0]);
 	sm9_fp4_to_hex(ppubs,ppubs_str);
 	int ppubs_str_len = (int)strlen(ppubs_str);
@@ -620,14 +689,12 @@ int test_sm9_sign() {
 	printf("out and reload ppubs str:%s\n",ppubs_str);
 
 	/* 验证 */
-
 	sm9_verify_init(&ctx);
 	sm9_verify_update(&ctx, data, sizeof(data));
-	//if (sm9_verify_finish(&ctx, sig, siglen, &mpk, (char *)IDA, sizeof(IDA)) != 1) goto err; ++j;
+	if (sm9_verify_finish(&ctx, sig, siglen, &mpk, (char *)IDA, sizeof(IDA)) != 1) goto err; ++j;
 
 	uint8_t *p_sig_der = sig;
 	printf("siglen:%ld,IDA size:%ld\n",siglen,sizeof(IDA));
-	SM9_SIGNATURE signature;
 
 	printf("Ppubs(X,Y,Z):-------------------\n");
 	for(int i=2-1;i>=0;i--){
@@ -671,6 +738,13 @@ err:
 
 int test_sm9_ciphertext()
 {
+	const SM9_POINT _P1 = {
+		{0x7c66dddd, 0xe8c4e481, 0x09dc3280, 0xe1e40869, 0x487d01d6, 0xf5ed0704, 0x62bf718f, 0x93de051d},
+		{0x0a3ea616, 0x0c464cd7, 0xfa602435, 0x1c1c00cb, 0x5c395bbc, 0x63106512, 0x4f21e607, 0x21fe8dda},
+		{1,0,0,0,0,0,0,0}
+	};
+	const SM9_POINT *P1 = &_P1;
+
 	SM9_POINT C1;
 	uint8_t c2[SM9_MAX_PLAINTEXT_SIZE];
 	uint8_t c3[SM3_HMAC_SIZE];
@@ -678,7 +752,7 @@ int test_sm9_ciphertext()
 	uint8_t *p = buf;
 	size_t len = 0;
 
-	sm9_point_copy(&C1, SM9_P1);
+	sm9_point_copy(&C1, P1);
 	if (sm9_ciphertext_to_der(&C1, c2, sizeof(c2), c3, &p, &len) != 1) {
 		error_print();
 		return -1;
@@ -701,8 +775,12 @@ int test_sm9_encrypt() {
 	size_t declen = 20;
 	uint8_t IDB[3] = {0x42, 0x6F, 0x62};
 
-	sm9_bn_from_hex(msk.ke, hex_ke); sm9_point_mul_generator(&(msk.Ppube), msk.ke);
+	sm9_bn_from_hex(msk.ke, hex_ke);
+	sm9_point_mul_generator(&(msk.Ppube), msk.ke);
+
 	if (sm9_enc_master_key_extract_key(&msk, (char *)IDB, sizeof(IDB), &key) < 0) goto err; ++j;
+
+
 	sm9_twist_point_from_hex(&de, hex_de); if (!sm9_twist_point_equ(&(key.de), &de)) goto err; ++j;
 
 	if (sm9_encrypt(&msk, (char *)IDB, sizeof(IDB), data, sizeof(data), out, &outlen) < 0) goto err; ++j;
@@ -731,21 +809,22 @@ int test_zmn_sm9_sign(){
 
 	char Hash_data_str[64+1] = {'\0'};
 
+	//char* IDA_str = "416C696365";
 	char* IDA_str = "3131";
 	int IDA_str_len = strlen(IDA_str);
 
 	char* data_str = "4368696E65736520494253207374616E64617264";
 	int data_str_len = strlen(data_str);
 
-	char ks_str[64] = {'\0'};
+	char ks_str[512] = {'\0'};// 长度为64
 	//char* ks_str = "000130E78459D78545CB54C587E02CF480CE0B66340F319F348A1D5B1F2DC5F4";
 	int ks_str_len = strlen(ks_str);
 
-	char ds_str[300] = {'\0'};
+	char ds_str[512] = {'\0'};// 300
 	//char* ds_str = "A5702F05CF1315305E2D6EB64B0DEB923DB1A0BCF0CAFF90523AC8754AA69820-78559A844411F9825C109F5EE3F52D720DD01785392A727BB1556952B2B013D3";
 	int ds_str_len = strlen(ds_str);
 	
-	char ppub_str[300] = {'\0'};
+	char ppub_str[512] = {'\0'};// 主公钥的长度，带格式不超过300
 	//char *ppub_str = "9F64080B3084F733E48AFF4B41B565011CE0711C5E392CFB0AB1B6791B94C408-29DBA116152D1F786CE843ED24A3B573414D2177386A92DD8F14D65696EA5E32\n" \
 		"69850938ABEA0112B57329F447E3A0CBAD3E2FDB1A77F335E89E1408D0EF1C25-41E00A53DDA532DA1A7CE027B7A46F741006E85F5CDFF0730E75C05FB4E3216D";
 	int ppub_str_len = strlen(ppub_str);
@@ -811,6 +890,8 @@ int test_zmn_sm9_sign(){
 		printf("sign not passed, not process sign-verify\n");
 		return -1;
 	}
+
+	printf("\ntest_zmn_sm9_sign DONE\n");
 
 	return 1;
 }
@@ -900,9 +981,9 @@ int test_zmn_sm9_enc(){
 	} else {
 		printf("encrypt not passed, not process decrypt\n");
 	}
-}
-int main(void) {
+}	
 
+int main(void) {
 	// if (test_sm9_fp() != 1) goto err;
 	// if (test_sm9_fn() != 1) goto err;
 	// if (test_sm9_fp2() != 1) goto err;
@@ -912,14 +993,13 @@ int main(void) {
 	// if (test_sm9_twist_point() != 1) goto err;
 	// if (test_sm9_pairing() != 1) goto err;
 	// if (test_sm9_sign() != 1) goto err;
-	// if (test_zmn_sm9_random() !=1) goto err;
 	// if (test_sm9_ciphertext() != 1) goto err;
-	//if (test_sm9_encrypt() != 1) goto err;
+	// if (test_sm9_encrypt() != 1) goto err;
+
 	if (test_zmn_sm9_sign() !=1) goto err;
 	//if (test_zmn_sm9_enc() !=1) goto err;
-	
 
-	printf("%s all tests passed\n", __FILE__);
+	// printf("%s all tests passed\n", __FILE__);
 	return 0;
 err:
 	error_print();

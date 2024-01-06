@@ -55,8 +55,7 @@ int skfutil_main(int argc, char **argv)
 	FILE *infp = stdin;
 	FILE *outfp = stdout;
 	unsigned char buf[4096];
-	unsigned int ulen;
-	int len;
+	size_t len;
 
 	uint8_t authkey[16];
 	size_t authkeylen;
@@ -121,14 +120,14 @@ int skfutil_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, infile, strerror(errno));
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, outfile, strerror(errno));
 				goto end;
 			}

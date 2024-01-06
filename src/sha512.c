@@ -1,5 +1,5 @@
 /*
- *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
+ *  Copyright 2014-2023 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
  *  not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ void sha512_update(SHA512_CTX *ctx, const unsigned char *data, size_t datalen)
 	size_t blocks;
 
 	if (ctx->num) {
-		unsigned int left = SHA512_BLOCK_SIZE - ctx->num;
+		size_t left = SHA512_BLOCK_SIZE - ctx->num;
 		if (datalen < left) {
 			memcpy(ctx->block + ctx->num, data, datalen);
 			ctx->num += datalen;
@@ -51,10 +51,12 @@ void sha512_update(SHA512_CTX *ctx, const unsigned char *data, size_t datalen)
 	}
 
 	blocks = datalen / SHA512_BLOCK_SIZE;
-	sha512_compress_blocks(ctx->state, data, blocks);
-	ctx->nblocks += blocks;
-	data += SHA512_BLOCK_SIZE * blocks;
-	datalen -= SHA512_BLOCK_SIZE * blocks;
+	if (blocks) {
+		sha512_compress_blocks(ctx->state, data, blocks);
+		ctx->nblocks += blocks;
+		data += SHA512_BLOCK_SIZE * blocks;
+		datalen -= SHA512_BLOCK_SIZE * blocks;
+	}
 
 	ctx->num = datalen;
 	if (datalen) {
@@ -83,7 +85,6 @@ void sha512_finish(SHA512_CTX *ctx, unsigned char dgst[SHA512_DIGEST_SIZE])
 		PUTU64(dgst, ctx->state[i]);
 		dgst += sizeof(uint64_t);
 	}
-	memset(ctx, 0, sizeof(SHA512_CTX));
 }
 
 #define Ch(X, Y, Z)	(((X) & (Y)) ^ ((~(X)) & (Z)))
@@ -186,6 +187,7 @@ void sha512_digest(const unsigned char *data, size_t datalen,
 	sha512_init(&ctx);
 	sha512_update(&ctx, data, datalen);
 	sha512_finish(&ctx, dgst);
+	memset(&ctx, 0, sizeof(ctx));
 }
 
 
@@ -227,5 +229,6 @@ void sha384_digest(const unsigned char *data, size_t datalen,
 	sha384_init(&ctx);
 	sha384_update(&ctx, data, datalen);
 	sha384_finish(&ctx, dgst);
+	memset(&ctx, 0, sizeof(ctx));
 }
 

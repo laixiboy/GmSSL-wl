@@ -12,7 +12,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <sys/stat.h>
+#include <gmssl/file.h>
 #include <gmssl/x509.h>
 #include <gmssl/cms.h>
 
@@ -35,7 +35,7 @@ int cmsdecrypt_main(int argc, char **argv)
 	FILE *outfp = stdout;
 	uint8_t cert[1024];
 	size_t certlen;
-	struct stat st;
+	size_t inlen;
 	uint8_t *cms = NULL;
 	size_t cmslen, cms_maxlen;
 	SM2_KEY key;
@@ -64,7 +64,7 @@ int cmsdecrypt_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-key")) {
 			if (--argc < 1) goto bad;
 			keyfile = *(++argv);
-			if (!(keyfp = fopen(keyfile, "r"))) {
+			if (!(keyfp = fopen(keyfile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, keyfile, strerror(errno));
 				goto end;
 			}
@@ -74,21 +74,21 @@ int cmsdecrypt_main(int argc, char **argv)
 		} else if (!strcmp(*argv, "-cert")) {
 			if (--argc < 1) goto bad;
 			certfile = *(++argv);
-			if (!(certfp = fopen(certfile, "r"))) {
+			if (!(certfp = fopen(certfile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, certfile, strerror(errno));
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-in")) {
 			if (--argc < 1) goto bad;
 			infile = *(++argv);
-			if (!(infp = fopen(infile, "r"))) {
+			if (!(infp = fopen(infile, "rb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, infile, strerror(errno));
 				goto end;
 			}
 		} else if (!strcmp(*argv, "-out")) {
 			if (--argc < 1) goto bad;
 			outfile = *(++argv);
-			if (!(outfp = fopen(outfile, "w"))) {
+			if (!(outfp = fopen(outfile, "wb"))) {
 				fprintf(stderr, "%s: open '%s' failure : %s\n", prog, outfile, strerror(errno));
 				goto end;
 			}
@@ -130,8 +130,11 @@ bad:
 		goto end;
 	}
 
-	fstat(fileno(infp), &st);
-	cms_maxlen = (st.st_size * 3)/4 + 1;
+	if (file_size(infp, &inlen) != 1) {
+		fprintf(stderr, "%s: get input length failed\n", prog);
+		goto end;
+	}
+	cms_maxlen = (inlen * 3)/4 + 1;
 	if (!(cms = malloc(cms_maxlen))) {
 		fprintf(stderr, "%s: malloc failure\n", prog);
 		goto end;

@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <dlfcn.h>
+#include <gmssl/dylib.h>
 #include "skf.h"
 #include "skf_ext.h"
 #include "skf_int.h"
@@ -19,7 +19,7 @@
 #define SKFerr(e,r)
 
 #define SKF_METHOD_BIND_FUNCTION_EX(func,name) \
-	skf->func = (SKF_##func##_FuncPtr)dlsym(skf->dso, "SKF_"#name)
+	skf->func = (SKF_##func##_FuncPtr)dylib_get_function(skf->dso, "SKF_"#name)
 
 #define SKF_METHOD_BIND_FUNCTION(func) \
 	SKF_METHOD_BIND_FUNCTION_EX(func,func)
@@ -34,7 +34,7 @@ SKF_METHOD *SKF_METHOD_load_library(const char *so_path)
 		SKFerr(SKF_F_SKF_METHOD_LOAD_LIBRARY, ERR_R_MALLOC_FAILURE);
 		goto end;
 	}
-	if (!(skf->dso = dlopen(so_path, RTLD_LAZY))) {
+	if (!(skf->dso = dylib_load_library(so_path))) {
 		SKFerr(SKF_F_SKF_METHOD_LOAD_LIBRARY, SKF_R_DSO_LOAD_FAILURE);
 		goto end;
 	}

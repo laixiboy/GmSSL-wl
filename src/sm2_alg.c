@@ -1,4 +1,4 @@
-/*
+﻿/*
  *  Copyright 2014-2022 The GmSSL Project. All Rights Reserved.
  *
  *  Licensed under the Apache License, Version 2.0 (the License); you may
@@ -13,6 +13,7 @@
 #include <string.h>
 #include <assert.h>
 #include <gmssl/sm2.h>
+#include <gmssl/mem.h>
 #include <gmssl/asn1.h>
 #include <gmssl/rand.h>
 #include <gmssl/error.h>
@@ -196,7 +197,7 @@ int sm2_bn_from_asn1_integer(SM2_BN r, const uint8_t *d, size_t dlen)
 		error_print();
 		return -1;
 	}
-	memcmp(buf + sizeof(buf) - dlen, d, dlen);
+	memcpy(buf + sizeof(buf) - dlen, d, dlen);
 	sm2_bn_from_bytes(r, buf);
 	return 1;
 }
@@ -219,8 +220,9 @@ int sm2_bn_print(FILE *fp, int fmt, int ind, const char *label, const SM2_BN a)
 void sm2_bn_to_bits(const SM2_BN a, char bits[256])
 {
 	int i, j;
+	uint64_t w;
 	for (i = 7; i >= 0; i--) {
-		uint32_t w = a[i];
+		w = a[i];
 		for (j = 0; j < 32; j++) {
 			*bits++ = (w & 0x80000000) ? '1' : '0';
 			w <<= 1;
@@ -267,6 +269,28 @@ void sm2_bn_set_word(SM2_BN r, uint32_t a)
 	}
 }
 
+int sm2_bn_rshift(SM2_BN ret, const SM2_BN a, unsigned int nbits)
+{
+	SM2_BN r;
+	int i;
+
+	if (nbits > 31) {
+		error_print();
+		return -1;
+	}
+	if (nbits == 0) {
+		sm2_bn_copy(ret, a);
+	}
+
+	for (i = 0; i < 7; i++) {
+		r[i] = a[i] >> nbits;
+		r[i] |= (a[i+1] << (32 - nbits)) & 0xffffffff;
+	}
+	r[i] = a[i] >> nbits;
+	sm2_bn_copy(ret, r);
+	return 1;
+}
+
 void sm2_bn_add(SM2_BN r, const SM2_BN a, const SM2_BN b)
 {
 	int i;
@@ -294,14 +318,26 @@ void sm2_bn_sub(SM2_BN ret, const SM2_BN a, const SM2_BN b)
 	sm2_bn_copy(ret, r);
 }
 
-// FIXME: get random from outside		
-void sm2_bn_rand_range(SM2_BN r, const SM2_BN range)
+int sm2_bn_rand_range(SM2_BN r, const SM2_BN range)
 {
 	uint8_t buf[32];
 	do {
-		(void)rand_bytes(buf, sizeof(buf));
+		if (rand_bytes(buf, sizeof(buf)) != 1) {
+			error_print();
+			return -1;
+		}
 		sm2_bn_from_bytes(r, buf);
 	} while (sm2_bn_cmp(r, range) >= 0);
+	return 1;
+}
+
+int sm2_fp_rand(SM2_Fp r)
+{
+	if (sm2_bn_rand_range(r, SM2_P) != 1) {
+		error_print();
+		return -1;
+	}
+	return 1;
 }
 
 void sm2_fp_add(SM2_Fp r, const SM2_Fp a, const SM2_Fp b)
@@ -503,6 +539,27 @@ void sm2_fp_inv(SM2_Fp r, const SM2_Fp a)
 	sm2_bn_clean(a5);
 }
 
+int sm2_fp_sqrt(SM2_Fp r, const SM2_Fp a)
+{
+	SM2_BN u;
+	SM2_BN y; // temp result, prevent call sm2_fp_sqrt(a, a)
+
+	// r = a^((p + 1)/4) when p = 3 (mod 4)
+	sm2_bn_add(u, SM2_P, SM2_ONE);
+	sm2_bn_rshift(u, u, 2);
+	sm2_fp_exp(y, a, u);
+
+	// check r^2 == a
+	sm2_fp_sqr(u, y);
+	if (sm2_bn_cmp(u, a) != 0) {
+		error_print();
+		return -1;
+	}
+
+	sm2_bn_copy(r, y);
+	return 1;
+}
+
 void sm2_fn_add(SM2_Fn r, const SM2_Fn a, const SM2_Fn b)
 {
 	sm2_bn_add(r, a, b);
@@ -574,20 +631,19 @@ static void sm2_bn288_sub(uint64_t ret[9], const uint64_t a[9], const uint64_t b
 	}
 }
 
-void sm2_fn_mul(SM2_BN r, const SM2_BN a, const SM2_BN b)
+void sm2_fn_mul(SM2_BN ret, const SM2_BN a, const SM2_BN b)
 {
-	static const uint64_t mu[8] = {
-		0xf15149a0, 0x12ac6361, 0xfa323c01, 0x8dfc2096,
-		1, 1, 1, 0x100000001,
+	SM2_BN r;
+	static const uint64_t mu[9] = {
+		0xf15149a0, 0x12ac6361, 0xfa323c01, 0x8dfc2096, 1, 1, 1, 1, 1,
 	};
 
-	uint64_t s[17];
+	uint64_t s[18];
 	uint64_t zh[9];
 	uint64_t zl[9];
 	uint64_t q[9];
 	uint64_t w;
 	int i, j;
-
 
 	/* z = a * b */
 	for (i = 0; i < 8; i++) {
@@ -618,21 +674,20 @@ void sm2_fn_mul(SM2_BN r, const SM2_BN a, const SM2_BN b)
 	}
 	for (i = 0; i < 9; i++) {
 		w = 0;
-		for (j = 0; j < 8; j++) {
+		for (j = 0; j < 9; j++) {
 			w += s[i + j] + zh[i] * mu[j];
 			s[i + j] = w & 0xffffffff;
 			w >>= 32;
 		}
-		s[i + 8] = w;
+		s[i + 9] = w;
 	}
 	for (i = 0; i < 8; i++) {
 		q[i] = s[9 + i];
 	}
 	//printf("q  = "); for (i = 7; i >= 0; i--) printf("%08x", (uint32_t)q[i]); printf("\n");
 
-
 	/* q = q * n mod (2^32)^9 */
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < 17; i++) {
 		s[i] = 0;
 	}
 	for (i = 0; i < 8; i++) {
@@ -647,7 +702,7 @@ void sm2_fn_mul(SM2_BN r, const SM2_BN a, const SM2_BN b)
 	for (i = 0; i < 9; i++) {
 		q[i] = s[i];
 	}
-	//printf("qn = "); for (i = 8; i >= 0; i--) printf("%08x", (uint32_t)q[i]); printf("\n");
+	//printf("qn = "); for (i = 8; i >= 0; i--) printf("%08x ", (uint32_t)q[i]); printf("\n");
 
 	/* r = zl - q (mod (2^32)^9) */
 
@@ -658,9 +713,7 @@ void sm2_fn_mul(SM2_BN r, const SM2_BN a, const SM2_BN b)
 		sm2_bn288_sub(q, c, q);
 		sm2_bn288_add(zl, q, zl);
 	}
-
-	//printf("r  = "); for (i = 8; i >= 0; i--) printf("%08x", (uint32_t)zl[i]); printf("\n");
-
+	//printf("zl  = "); for (i = 8; i >= 0; i--) printf("%08x ", (uint32_t)zl[i]); printf("\n");
 	for (i = 0; i < 8; i++) {
 		r[i] = zl[i];
 	}
@@ -669,8 +722,16 @@ void sm2_fn_mul(SM2_BN r, const SM2_BN a, const SM2_BN b)
 	/* while r >= p do: r = r - n */
 	while (sm2_bn_cmp(r, SM2_N) >= 0) {
 		sm2_bn_sub(r, r, SM2_N);
-		//printf("r = r -n  = "); for (i = 8; i >= 0; i--) printf("%08x", (uint32_t)zl[i]); printf("\n");
+		//printf("r-n = "); for (i = 7; i >= 0; i--) printf("%16llx ", r[i]); printf("\n");
 	}
+	sm2_bn_copy(ret, r);
+}
+
+void sm2_fn_mul_word(SM2_Fn r, const SM2_Fn a, uint32_t b)
+{
+	SM2_Fn t;
+	sm2_bn_set_word(t, b);
+	sm2_fn_mul(r, a, t);
 }
 
 void sm2_fn_sqr(SM2_BN r, const SM2_BN a)
@@ -695,7 +756,6 @@ void sm2_fn_exp(SM2_BN r, const SM2_BN a, const SM2_BN e)
 			w <<= 1;
 		}
 	}
-
 	sm2_bn_copy(r, t);
 }
 
@@ -706,9 +766,13 @@ void sm2_fn_inv(SM2_BN r, const SM2_BN a)
 	sm2_fn_exp(r, a, e);
 }
 
-void sm2_fn_rand(SM2_BN r)
+int sm2_fn_rand(SM2_BN r)
 {
-	sm2_bn_rand_range(r, SM2_N);
+	if (sm2_bn_rand_range(r, SM2_N) != 1) {
+		error_print();
+		return -1;
+	}
+	return 1;
 }
 
 
@@ -734,19 +798,22 @@ void sm2_jacobian_point_set_xy(SM2_JACOBIAN_POINT *R, const SM2_BN x, const SM2_
 
 void sm2_jacobian_point_get_xy(const SM2_JACOBIAN_POINT *P, SM2_BN x, SM2_BN y)
 {
-	SM2_BN z_inv;
-
 	if (sm2_bn_is_one(P->Z)) {
 		sm2_bn_copy(x, P->X);
-		sm2_bn_copy(y, P->Y);
+		if (y) {
+			sm2_bn_copy(y, P->Y);
+		}
 	} else {
+		SM2_BN z_inv;
 		sm2_fp_inv(z_inv, P->Z);
-		if (y)
+		if (y) {
 			sm2_fp_mul(y, P->Y, z_inv);
+		}
 		sm2_fp_sqr(z_inv, z_inv);
 		sm2_fp_mul(x, P->X, z_inv);
-		if (y)
+		if (y) {
 			sm2_fp_mul(y, y, z_inv);
+		}
 	}
 }
 
@@ -1015,13 +1082,16 @@ int sm2_jacobian_point_equ_hex(const SM2_JACOBIAN_POINT *P, const char hex[128])
 	return (sm2_bn_cmp(x, T->X) == 0) && (sm2_bn_cmp(y, T->Y) == 0);
 }
 
-
-
 int sm2_point_is_on_curve(const SM2_POINT *P)
 {
 	SM2_JACOBIAN_POINT T;
 	sm2_jacobian_point_from_bytes(&T, (const uint8_t *)P);
 	return sm2_jacobian_point_is_on_curve(&T);
+}
+
+int sm2_point_is_at_infinity(const SM2_POINT *P)
+{
+	return mem_is_zero((uint8_t *)P, sizeof(SM2_POINT));
 }
 
 int sm2_point_from_x(SM2_POINT *P, const uint8_t x[32], int y)
@@ -1044,8 +1114,8 @@ int sm2_point_from_x(SM2_POINT *P, const uint8_t x[32], int y)
 		error_print();
 		return -1;
 	}
-	
-	if ((y == 0x02 && sm2_bn_is_odd(_y)) || (y == 0x03) && !sm2_bn_is_odd(_y)) {
+
+	if ((y == 0x02 && sm2_bn_is_odd(_y)) || ((y == 0x03) && !sm2_bn_is_odd(_y))) {
 		sm2_fp_neg(_y, _y);
 	}
 
@@ -1057,7 +1127,7 @@ int sm2_point_from_x(SM2_POINT *P, const uint8_t x[32], int y)
 	sm2_bn_clean(_g);
 	sm2_bn_clean(_z);
 
-	if (!sm2_point_is_on_curve(P)) {
+	if (sm2_point_is_on_curve(P) != 1) {
 		error_print();
 		return -1;
 	}
@@ -1069,6 +1139,54 @@ int sm2_point_from_xy(SM2_POINT *P, const uint8_t x[32], const uint8_t y[32])
 	memcpy(P->x, x, 32);
 	memcpy(P->y, y, 32);
 	return sm2_point_is_on_curve(P);
+}
+
+int sm2_point_add(SM2_POINT *R, const SM2_POINT *P, const SM2_POINT *Q)
+{
+	SM2_JACOBIAN_POINT P_;
+	SM2_JACOBIAN_POINT Q_;
+
+	sm2_jacobian_point_from_bytes(&P_, (uint8_t *)P);
+	sm2_jacobian_point_from_bytes(&Q_, (uint8_t *)Q);
+	sm2_jacobian_point_add(&P_, &P_, &Q_);
+	sm2_jacobian_point_to_bytes(&P_, (uint8_t *)R);
+
+	return 1;
+}
+
+int sm2_point_sub(SM2_POINT *R, const SM2_POINT *P, const SM2_POINT *Q)
+{
+	SM2_JACOBIAN_POINT P_;
+	SM2_JACOBIAN_POINT Q_;
+
+	sm2_jacobian_point_from_bytes(&P_, (uint8_t *)P);
+	sm2_jacobian_point_from_bytes(&Q_, (uint8_t *)Q);
+	sm2_jacobian_point_sub(&P_, &P_, &Q_);
+	sm2_jacobian_point_to_bytes(&P_, (uint8_t *)R);
+
+	return 1;
+}
+
+int sm2_point_neg(SM2_POINT *R, const SM2_POINT *P)
+{
+	SM2_JACOBIAN_POINT P_;
+
+	sm2_jacobian_point_from_bytes(&P_, (uint8_t *)P);
+	sm2_jacobian_point_neg(&P_, &P_);
+	sm2_jacobian_point_to_bytes(&P_, (uint8_t *)R);
+
+	return 1;
+}
+
+int sm2_point_dbl(SM2_POINT *R, const SM2_POINT *P)
+{
+	SM2_JACOBIAN_POINT P_;
+
+	sm2_jacobian_point_from_bytes(&P_, (uint8_t *)P);
+	sm2_jacobian_point_dbl(&P_, &P_);
+	sm2_jacobian_point_to_bytes(&P_, (uint8_t *)R);
+
+	return 1;
 }
 
 int sm2_point_mul(SM2_POINT *R, const uint8_t k[32], const SM2_POINT *P)
@@ -1189,3 +1307,45 @@ int sm2_point_from_der(SM2_POINT *P, const uint8_t **in, size_t *inlen)
 	}
 	return 1;
 }
+
+int sm2_point_from_hash(SM2_POINT *R, const uint8_t *data, size_t datalen)
+{
+	SM2_BN u;
+	SM2_Fp x;
+	SM2_Fp y;
+	SM2_Fp s;
+	SM2_Fp s_;
+	uint8_t dgst[32];
+
+	// u = (p + 1)/4
+	sm2_bn_add(u, SM2_P, SM2_ONE);
+	sm2_bn_rshift(u, u, 2);
+
+	do {
+		sm3_digest(data, datalen, dgst);
+
+		sm2_bn_from_bytes(x, dgst);
+		if (sm2_bn_cmp(x, SM2_P) >= 0) {
+			sm2_bn_sub(x, x, SM2_P);
+		}
+
+		// s = y^2 = x^3 + a*x + b
+		sm2_fp_sqr(s, x);
+		sm2_fp_sub(s, s, SM2_THREE);
+		sm2_fp_mul(s, s, x);
+		sm2_fp_add(s, s, SM2_B);
+
+		// y = s^((p+1)/4) = (sqrt(s) (mod p))
+		sm2_fp_exp(y, s, u);
+		sm2_fp_sqr(s_, y);
+
+		data = dgst;
+		datalen = sizeof(dgst);
+
+	} while (sm2_bn_cmp(s, s_) != 0);
+
+	sm2_bn_to_bytes(x, R->x);
+	sm2_bn_to_bytes(y, R->y);
+	return 1;
+}
+
